@@ -3,24 +3,24 @@ import { ReviewConfig } from './schema.js';
 export const DEFAULT_MODELS = [
   {
     provider: 'anthropic' as const,
-    model: 'claude-sonnet-4-5-20250929',
+    model: 'claude-opus-4-6',
     apiKey: process.env.ANTHROPIC_API_KEY,
     temperature: 0.3,
-    maxTokens: 4000,
+    maxTokens: 16000,
   },
   {
     provider: 'openai' as const,
-    model: 'gpt-4o',
+    model: 'o3',
     apiKey: process.env.OPENAI_API_KEY,
     temperature: 0.3,
-    maxTokens: 4000,
+    maxTokens: 16000,
   },
   {
     provider: 'google' as const,
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.5-pro',
     apiKey: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY,
     temperature: 0.3,
-    maxTokens: 4000,
+    maxTokens: 16000,
   },
 ];
 
