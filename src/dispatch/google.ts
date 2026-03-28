@@ -8,7 +8,7 @@ export class GoogleAdapter implements ReviewAdapter {
 
   async review(request: ReviewRequest): Promise<ReviewResponse> {
     const startTime = Date.now();
-    const apiKey = request.model.apiKey || process.env.GOOGLE_API_KEY;
+    const apiKey = request.model.apiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return {
@@ -16,7 +16,7 @@ export class GoogleAdapter implements ReviewAdapter {
         model: request.model.model,
         rawResponse: '',
         success: false,
-        error: 'GOOGLE_API_KEY not found',
+        error: 'GOOGLE_API_KEY or GEMINI_API_KEY not found',
         durationMs: 0,
       };
     }

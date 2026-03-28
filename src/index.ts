@@ -54,9 +54,10 @@ program
 
       // Resolve diff
       spinner.start('Resolving diff');
+      const isGitHubRef = /^[^\/]+\/[^#]+#\d+$/.test(target) || /github\.com\//.test(target);
       const diffResult = await resolveDiff(target, {
         diff: options.diff,
-        patchFile: options.diff ? undefined : target,
+        patchFile: (options.diff || isGitHubRef) ? undefined : target,
         githubToken: options.githubToken,
       });
 
