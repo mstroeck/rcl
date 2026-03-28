@@ -76,44 +76,57 @@ program
         spinner.info(`Split into ${chunks.length} chunks for processing`);
       }
 
-      // Process chunks (for MVP, just use first chunk)
-      const chunk = chunks[0];
+      // Process all chunks and collect responses
+      const allResponses: Awaited<ReturnType<typeof runReviews>> = [];
 
-      // Build prompt
-      spinner.start('Building review prompt');
-      const prompt = buildReviewPrompt(chunk, {
-        includeFixSuggestions: config.includeFixSuggestions,
-        promptHardening: config.promptHardening,
-      });
-      spinner.succeed('Prompt built');
-
-      // Run reviews
-      const modelSpinners = config.models.map(m => {
-        const s = ora(`Reviewing with ${m.provider}/${m.model}`).start();
-        return { provider: `${m.provider}/${m.model}`, spinner: s };
-      });
-
-      const responses = await runReviews(
-        prompt,
-        config.models,
-        config.timeout,
-        config.maxConcurrent
-      );
-
-      // Update spinners
-      for (let i = 0; i < responses.length; i++) {
-        const resp = responses[i];
-        const ms = modelSpinners[i];
-        if (resp.success) {
-          ms.spinner.succeed(`${ms.provider} completed (${resp.durationMs}ms)`);
+      for (let ci = 0; ci < chunks.length; ci++) {
+        const chunk = chunks[ci];
+        if (chunks.length > 1) {
+          spinner.start(`Building prompt for chunk ${ci + 1}/${chunks.length}`);
         } else {
-          ms.spinner.fail(`${ms.provider} failed: ${resp.error}`);
+          spinner.start('Building review prompt');
         }
+        const prompt = buildReviewPrompt(chunk, {
+          includeFixSuggestions: config.includeFixSuggestions,
+          promptHardening: config.promptHardening,
+        });
+        spinner.succeed(chunks.length > 1
+          ? `Chunk ${ci + 1}/${chunks.length} prompt built (${chunk.files.length} files)`
+          : 'Prompt built');
+
+        // Run reviews
+        const modelSpinners = config.models.map(m => {
+          const label = chunks.length > 1
+            ? `[${ci + 1}/${chunks.length}] Reviewing with ${m.provider}/${m.model}`
+            : `Reviewing with ${m.provider}/${m.model}`;
+          const s = ora(label).start();
+          return { provider: `${m.provider}/${m.model}`, spinner: s };
+        });
+
+        const responses = await runReviews(
+          prompt,
+          config.models,
+          config.timeout,
+          config.maxConcurrent
+        );
+
+        // Update spinners
+        for (let i = 0; i < responses.length; i++) {
+          const resp = responses[i];
+          const ms = modelSpinners[i];
+          if (resp.success) {
+            ms.spinner.succeed(`${ms.provider} completed (${resp.durationMs}ms)`);
+          } else {
+            ms.spinner.fail(`${ms.provider} failed: ${resp.error}`);
+          }
+        }
+
+        allResponses.push(...responses);
       }
 
-      // Build consensus
+      // Build consensus across all chunk responses
       spinner.start('Building consensus');
-      const result = await buildConsensus(responses, config);
+      const result = await buildConsensus(allResponses, config);
       spinner.succeed(
         `Consensus built: ${result.findings.length} finding${result.findings.length !== 1 ? 's' : ''}`
       );

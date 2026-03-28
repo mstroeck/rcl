@@ -17,8 +17,8 @@ export const DEFAULT_MODELS = [
   },
   {
     provider: 'google' as const,
-    model: 'gemini-2.0-flash-exp',
-    apiKey: process.env.GOOGLE_API_KEY,
+    model: 'gemini-2.5-flash',
+    apiKey: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY,
     temperature: 0.3,
     maxTokens: 4000,
   },
@@ -35,6 +35,6 @@ export const DEFAULT_CONFIG: Partial<ReviewConfig> = {
   maxConcurrent: 5,
   includeFixSuggestions: true,
   promptHardening: true,
-  chunkSize: 2000,
+  chunkSize: 30000,
   nearMatchThreshold: 5,
 };
