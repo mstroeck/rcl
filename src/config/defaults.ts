@@ -27,7 +27,7 @@ export const DEFAULT_MODELS = [
 export const DEFAULT_CONFIG: Partial<ReviewConfig> = {
   models: DEFAULT_MODELS,
   thresholds: {
-    minConsensusScore: 0.5,
+    minConsensusScore: 0,
     minSeverity: 'low',
     requireUnanimous: false,
   },

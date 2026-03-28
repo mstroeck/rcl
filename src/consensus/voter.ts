@@ -7,7 +7,9 @@ export function voteOnFindings(
 ): ConsensusFinding[] {
   return groups.map(group => {
     const representative = selectRepresentativeFinding(group);
-    const modelCount = group.findings.length;
+    // Deduplicate models — same model can contribute multiple findings to a group
+    const uniqueModels = [...new Set(group.findings.map(f => f.modelId))];
+    const modelCount = uniqueModels.length;
     const consensusScore = modelCount / totalModels;
     const unanimous = modelCount === totalModels;
 
@@ -26,7 +28,7 @@ export function voteOnFindings(
       elevated = true;
     }
 
-    const models = group.findings.map(f => f.modelId);
+    const models = uniqueModels;
 
     return {
       ...representative,
