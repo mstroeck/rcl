@@ -124,9 +124,35 @@ program
         allResponses.push(...responses);
       }
 
-      // Build consensus across all chunk responses
+      // Merge responses from same model across chunks before consensus
+      const mergedByModel = new Map<string, typeof allResponses[0]>();
+      for (const resp of allResponses) {
+        const key = `${resp.provider}/${resp.model}`;
+        const existing = mergedByModel.get(key);
+        if (!existing) {
+          mergedByModel.set(key, { ...resp });
+        } else {
+          // Merge: combine rawResponse arrays, sum duration, keep success if any succeeded
+          try {
+            const existingFindings = JSON.parse(existing.rawResponse || '[]');
+            const newFindings = JSON.parse(resp.rawResponse || '[]');
+            existing.rawResponse = JSON.stringify([
+              ...(Array.isArray(existingFindings) ? existingFindings : []),
+              ...(Array.isArray(newFindings) ? newFindings : []),
+            ]);
+          } catch {
+            // If parsing fails, keep existing
+          }
+          existing.durationMs += resp.durationMs;
+          existing.success = existing.success || resp.success;
+          if (resp.error && !existing.error) existing.error = resp.error;
+        }
+      }
+      const mergedResponses = [...mergedByModel.values()];
+
+      // Build consensus across merged model responses
       spinner.start('Building consensus');
-      const result = await buildConsensus(allResponses, config);
+      const result = await buildConsensus(mergedResponses, config);
       spinner.succeed(
         `Consensus built: ${result.findings.length} finding${result.findings.length !== 1 ? 's' : ''}`
       );
