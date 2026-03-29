@@ -177,8 +177,8 @@ program
               ...(Array.isArray(existingFindings) ? existingFindings : []),
               ...(Array.isArray(newFindings) ? newFindings : []),
             ]);
-          } catch {
-            // If parsing fails, keep existing
+          } catch (error) {
+            console.warn(`Warning: Failed to merge findings for ${key}: ${error}`);
           }
           existing.durationMs += resp.durationMs;
           existing.success = existing.success || resp.success;
