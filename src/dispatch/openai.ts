@@ -24,11 +24,17 @@ export class OpenAIAdapter implements ReviewAdapter {
     const client = new OpenAI({ apiKey });
 
     try {
+      // Newer OpenAI models (o3, gpt-5.x, etc.) use max_completion_tokens instead of max_tokens
+      const usesCompletionTokens = /^(o[1-9]|gpt-[5-9]|gpt-\d{2,})/.test(request.model.model);
+      const tokenParam = usesCompletionTokens
+        ? { max_completion_tokens: request.model.maxTokens }
+        : { max_tokens: request.model.maxTokens };
+
       const response = await Promise.race([
         client.chat.completions.create({
           model: request.model.model,
           temperature: request.model.temperature,
-          max_tokens: request.model.maxTokens,
+          ...tokenParam,
           messages: [
             {
               role: 'user',

@@ -1,5 +1,5 @@
 import { ReviewResponse } from '../dispatch/adapter.js';
-import { ModelReview, FindingSchema } from './types.js';
+import { ModelReview, Finding, FindingSchema } from './types.js';
 import { z } from 'zod';
 
 export function parseReviewResponse(response: ReviewResponse): ModelReview {

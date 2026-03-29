@@ -3,8 +3,10 @@ export interface Boundary {
   end: string;
 }
 
+import { randomBytes } from 'crypto';
+
 export function createBoundary(): Boundary {
-  const nonce = Math.random().toString(16).substring(2, 10);
+  const nonce = randomBytes(4).toString('hex');
   return {
     start: `--- DIFF_${nonce}_START ---`,
     end: `--- DIFF_${nonce}_END ---`,

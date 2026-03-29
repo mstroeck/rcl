@@ -42,17 +42,25 @@ export class GoogleAdapter implements ReviewAdapter {
 
       const text = response.response.text();
 
-      // Parse JSON response
+      // Parse JSON response — Gemini may wrap findings in various shapes
       let parsed;
       try {
         parsed = JSON.parse(text);
         if (parsed.findings && Array.isArray(parsed.findings)) {
           parsed = parsed.findings;
+        } else if (parsed.issues && Array.isArray(parsed.issues)) {
+          parsed = parsed.issues;
+        } else if (parsed.results && Array.isArray(parsed.results)) {
+          parsed = parsed.results;
         } else if (!Array.isArray(parsed)) {
-          parsed = [];
+          // Last resort: look for any array property
+          const arrayProp = Object.values(parsed).find(v => Array.isArray(v));
+          parsed = arrayProp || [];
         }
       } catch {
-        parsed = [];
+        // Try to extract JSON array from text if it's wrapped in markdown
+        const match = text.match(/\[[\s\S]*\]/);
+        parsed = match ? JSON.parse(match[0]) : [];
       }
 
       return {
