@@ -18,6 +18,7 @@ import { parseGitHubURL } from './resolver/github.js';
 import { estimateTokens, estimateCost, formatEstimate, ModelEstimate } from './cost/estimator.js';
 import { evaluatePolicy, formatCIFindings } from './ci/policy.js';
 import { ArtifactWriter, createArtifact, ResolvedDiffArtifact, PromptArtifact, ModelRunArtifact, ConsensusArtifact, PolicyArtifact } from './artifacts/index.js';
+import { initCommand } from './cli/init.js';
 import fs from 'fs/promises';
 
 const program = new Command();
@@ -483,6 +484,20 @@ program
           process.exit(policyResult.exitCode);
         }
       }
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('init')
+  .description('Initialize Review Council configuration')
+  .option('--yes', 'Skip interactive prompts and use defaults')
+  .option('--github-action', 'Generate GitHub Actions workflow')
+  .action(async (options) => {
+    try {
+      await initCommand(options);
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
       process.exit(1);
