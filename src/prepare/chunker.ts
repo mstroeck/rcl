@@ -6,6 +6,14 @@ export interface DiffChunk {
 }
 
 export function chunkDiff(files: FileChange[], maxChunkSize: number): DiffChunk[] {
+  if (maxChunkSize <= 0) {
+    throw new Error('maxChunkSize must be positive');
+  }
+
+  if (files.length === 0) {
+    return [];
+  }
+
   const chunks: DiffChunk[] = [];
   let currentChunk: FileChange[] = [];
   let currentSize = 0;
@@ -39,7 +47,7 @@ export function chunkDiff(files: FileChange[], maxChunkSize: number): DiffChunk[
     chunks.push({ files: currentChunk, estimatedTokens: currentSize });
   }
 
-  return chunks.length > 0 ? chunks : [{ files: [], estimatedTokens: 0 }];
+  return chunks;
 }
 
 function estimateTokens(file: FileChange): number {

@@ -44,8 +44,8 @@ export function estimateCost(tokens: number, model: string): CostEstimate {
   // Input cost: based on prompt tokens
   const inputCost = (tokens / 1_000_000) * pricing.input;
 
-  // Output cost: estimate ~500 tokens per finding, ~5 findings per model
-  const estimatedOutputTokens = 2500;
+  // Output cost: scale based on input size (assume ~10% of input, minimum 2500)
+  const estimatedOutputTokens = Math.max(2500, tokens * 0.1);
   const outputCost = (estimatedOutputTokens / 1_000_000) * pricing.output;
 
   return {
