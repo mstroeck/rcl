@@ -54,6 +54,7 @@ program
   .option('--fail-on <severity>', 'Severity threshold for CI failure (info|low|medium|high|critical)')
   .option('--require-consensus <count>', 'Minimum models that must agree for blocking finding', parseInt)
   .option('--soft-fail', 'Report findings but always exit 0 (for CI)')
+  .option('--show-disagreements', 'Show disagreement analysis (default: on in verbose mode)')
   .action(async (target, options) => {
     try {
       const spinner = ora('Loading configuration').start();
@@ -271,9 +272,12 @@ program
       if (options.json) {
         output = formatJsonOutput(result);
       } else if (options.markdown) {
-        output = formatMarkdownOutput(result);
+        output = formatMarkdownOutput(result, options.showDisagreements || options.verbose);
       } else {
-        output = formatTerminalOutput(result, options.verbose || options.fixSuggestions);
+        const showDisagreements = options.showDisagreements !== undefined
+          ? options.showDisagreements
+          : (options.verbose || options.fixSuggestions);
+        output = formatTerminalOutput(result, options.verbose || options.fixSuggestions, showDisagreements);
       }
 
       if (options.output) {

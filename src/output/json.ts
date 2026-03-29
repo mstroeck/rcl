@@ -6,6 +6,7 @@ export function formatJsonOutput(result: ConsensusResult): string {
       totalFindings: result.findings.length,
       successfulModels: result.successCount,
       failedModels: result.failureCount,
+      disagreements: result.disagreements.length,
     },
     findings: result.findings.map(f => ({
       file: f.file,
@@ -23,6 +24,16 @@ export function formatJsonOutput(result: ConsensusResult): string {
         unanimous: f.unanimous,
         models: f.models,
       },
+    })),
+    disagreements: result.disagreements.map(d => ({
+      file: d.finding.file,
+      line: d.finding.line,
+      severity: d.finding.severity,
+      category: d.finding.category,
+      message: d.finding.message,
+      modelId: d.modelId,
+      reason: d.reason,
+      severityRange: d.severityRange,
     })),
     reviews: result.reviews.map(r => ({
       provider: r.provider,

@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { ConsensusFinding, Severity } from '../consensus/types.js';
-import { ConsensusResult } from '../consensus/index.js';
+import { ConsensusResult, DisagreementFinding } from '../consensus/index.js';
 import { summarizeFindings } from '../consensus/ranker.js';
 
 function getSeverityColor(severity: Severity): (text: string) => string {
@@ -33,7 +33,11 @@ function getSeverityIcon(severity: Severity): string {
   }
 }
 
-export function formatTerminalOutput(result: ConsensusResult, verbose: boolean = false): string {
+export function formatTerminalOutput(
+  result: ConsensusResult,
+  verbose: boolean = false,
+  showDisagreements: boolean = false
+): string {
   const lines: string[] = [];
 
   // Header
@@ -121,6 +125,49 @@ export function formatTerminalOutput(result: ConsensusResult, verbose: boolean =
     }
 
     lines.push('');
+  }
+
+  // Disagreements section
+  if (showDisagreements && result.disagreements.length > 0) {
+    lines.push(chalk.bold('Disagreements:'));
+    lines.push('');
+
+    const singleModel = result.disagreements.filter(d => d.reason === 'single-model');
+    const severityDisagreements = result.disagreements.filter(d => d.reason === 'severity-disagreement');
+
+    if (singleModel.length > 0) {
+      lines.push(chalk.yellow('  Single-Model Findings (flagged by only 1 model):'));
+      for (const dis of singleModel) {
+        const severity = getSeverityColor(dis.finding.severity)(dis.finding.severity.toUpperCase());
+        lines.push(`    • ${severity} ${dis.finding.category} at ${chalk.cyan(`${dis.finding.file}:${dis.finding.line}`)}`);
+        lines.push(`      Model: ${chalk.gray(dis.modelId)}`);
+        lines.push(`      ${dis.finding.message}`);
+        lines.push('');
+      }
+    }
+
+    if (severityDisagreements.length > 0) {
+      lines.push(chalk.yellow('  Severity Disagreements (models disagree on severity):'));
+      // Group by file:line
+      const grouped = new Map<string, DisagreementFinding[]>();
+      for (const dis of severityDisagreements) {
+        const key = `${dis.finding.file}:${dis.finding.line}`;
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push(dis);
+      }
+
+      for (const [location, findings] of grouped.entries()) {
+        lines.push(`    • ${chalk.cyan(location)} - ${findings[0].finding.category}`);
+        if (findings[0].severityRange) {
+          lines.push(`      Severity range: ${chalk.yellow(findings[0].severityRange.min)} to ${chalk.red(findings[0].severityRange.max)}`);
+        }
+        for (const f of findings) {
+          const severity = getSeverityColor(f.finding.severity)(f.finding.severity);
+          lines.push(`      ${chalk.gray(f.modelId)}: ${severity}`);
+        }
+        lines.push('');
+      }
+    }
   }
 
   lines.push(chalk.bold.cyan('═══════════════════════════════════════════════════'));
