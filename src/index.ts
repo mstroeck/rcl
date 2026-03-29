@@ -58,9 +58,20 @@ program
       // Resolve diff
       spinner.start('Resolving diff');
       const isGitHubRef = /^[^\/]+\/[^#]+#\d+$/.test(target) || /github\.com\//.test(target);
+
+      // Only set patchFile if target looks like a file path
+      let patchFile: string | undefined;
+      if (!options.diff && !isGitHubRef) {
+        // Check if it's a file path (exists or has common patch/diff extension)
+        const looksLikeFile = target.endsWith('.patch') || target.endsWith('.diff') || target.includes('/');
+        if (looksLikeFile) {
+          patchFile = target;
+        }
+      }
+
       const diffResult = await resolveDiff(target, {
         diff: options.diff,
-        patchFile: (options.diff || isGitHubRef) ? undefined : target,
+        patchFile,
         githubToken: options.githubToken,
       });
 
