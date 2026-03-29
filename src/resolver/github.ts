@@ -7,8 +7,14 @@ export async function fetchGitHubPR(
   prNumber: number,
   token?: string
 ): Promise<DiffResult> {
+  const authToken = token || process.env.GITHUB_TOKEN;
+
+  if (!authToken) {
+    console.warn('Warning: No GitHub token provided. API rate limits will be restricted.');
+  }
+
   const octokit = new Octokit({
-    auth: token || process.env.GITHUB_TOKEN,
+    auth: authToken,
   });
 
   try {
@@ -19,22 +25,12 @@ export async function fetchGitHubPR(
       pull_number: prNumber,
     });
 
-    // Fetch PR files
-    const { data: files } = await octokit.pulls.listFiles({
+    // Fetch PR files with pagination to handle PRs with >100 files
+    const files = await octokit.paginate(octokit.pulls.listFiles, {
       owner,
       repo,
       pull_number: prNumber,
       per_page: 100,
-    });
-
-    // Fetch diff
-    const { data: diff } = await octokit.pulls.get({
-      owner,
-      repo,
-      pull_number: prNumber,
-      mediaType: {
-        format: 'diff',
-      },
     });
 
     const metadata: PRMetadata = {
@@ -77,7 +73,7 @@ export async function fetchGitHubPR(
 
 export function parseGitHubURL(input: string): { owner: string; repo: string; prNumber: number } | null {
   // Matches: owner/repo#123 or https://github.com/owner/repo/pull/123
-  const shortMatch = input.match(/^([^\/]+)\/([^#]+)#(\d+)$/);
+  const shortMatch = input.match(/^([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)#(\d+)$/);
   if (shortMatch) {
     return {
       owner: shortMatch[1],
