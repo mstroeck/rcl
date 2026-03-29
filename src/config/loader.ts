@@ -90,7 +90,7 @@ export async function getConfig(cliOptions?: {
       } else if (lower.includes('gemini') || lower.includes('google')) {
         return {
           provider: 'google' as const,
-          model: 'gemini-3-pro-preview',
+          model: 'gemini-2.5-pro',
           apiKey: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY,
           temperature: 0.3,
           maxTokens: 16000,

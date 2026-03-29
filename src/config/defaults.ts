@@ -1,29 +1,49 @@
 import { ReviewConfig, ModelConfig } from './schema.js';
 
 export function getDefaultModels(): ModelConfig[] {
-  return [
-    {
+  const models: ModelConfig[] = [];
+
+  // Only include models where API keys are available
+  if (process.env.ANTHROPIC_API_KEY) {
+    models.push({
       provider: 'anthropic' as const,
       model: 'claude-opus-4-6',
       apiKey: process.env.ANTHROPIC_API_KEY,
       temperature: 0.3,
       maxTokens: 16000,
-    },
-    {
+    });
+  }
+
+  if (process.env.OPENAI_API_KEY) {
+    models.push({
       provider: 'openai' as const,
       model: 'gpt-5.4',
       apiKey: process.env.OPENAI_API_KEY,
       temperature: 0.3,
       maxTokens: 16000,
-    },
-    {
+    });
+  }
+
+  if (process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY) {
+    models.push({
       provider: 'google' as const,
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-pro',
       apiKey: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY,
       temperature: 0.3,
       maxTokens: 16000,
-    },
-  ];
+    });
+  }
+
+  // Fallback: if no keys found, include all so errors are explicit
+  if (models.length === 0) {
+    return [
+      { provider: 'anthropic' as const, model: 'claude-opus-4-6', temperature: 0.3, maxTokens: 16000 },
+      { provider: 'openai' as const, model: 'gpt-5.4', temperature: 0.3, maxTokens: 16000 },
+      { provider: 'google' as const, model: 'gemini-2.5-pro', temperature: 0.3, maxTokens: 16000 },
+    ];
+  }
+
+  return models;
 }
 
 // Note: models are lazily evaluated via getDefaultModels() in loader.ts
