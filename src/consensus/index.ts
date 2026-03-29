@@ -1,6 +1,6 @@
 import { ReviewResponse } from '../dispatch/adapter.js';
 import { ReviewConfig } from '../config/schema.js';
-import { parseAllReviews } from './parser.js';
+import { parseAllReviews, validateFindings } from './parser.js';
 import { deduplicateFindings } from './deduper.js';
 import { voteOnFindings, filterByThresholds } from './voter.js';
 import { rankFindings } from './ranker.js';
@@ -15,7 +15,8 @@ export interface ConsensusResult {
 
 export async function buildConsensus(
   responses: ReviewResponse[],
-  config: ReviewConfig
+  config: ReviewConfig,
+  diffFiles: string[]
 ): Promise<ConsensusResult> {
   // Parse all reviews
   const reviews = parseAllReviews(responses);
@@ -36,8 +37,14 @@ export async function buildConsensus(
     };
   }
 
+  // Validate findings against actual diff files
+  const validatedReviews = successfulReviews.map(review => ({
+    ...review,
+    findings: validateFindings(review.findings, diffFiles),
+  }));
+
   // Prepare findings with model IDs
-  const reviewsWithIds = successfulReviews.map(review => ({
+  const reviewsWithIds = validatedReviews.map(review => ({
     modelId: `${review.provider}/${review.model}`,
     findings: review.findings,
   }));

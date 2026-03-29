@@ -55,3 +55,19 @@ export function parseReviewResponse(response: ReviewResponse): ModelReview {
 export function parseAllReviews(responses: ReviewResponse[]): ModelReview[] {
   return responses.map(parseReviewResponse);
 }
+
+export function validateFindings(findings: Finding[], diffFiles: string[]): Finding[] {
+  const validFindings: Finding[] = [];
+
+  for (const finding of findings) {
+    if (diffFiles.includes(finding.file)) {
+      validFindings.push(finding);
+    } else {
+      console.warn(
+        `Dropped finding for non-existent file: ${finding.file} (not in diff)`
+      );
+    }
+  }
+
+  return validFindings;
+}

@@ -152,7 +152,8 @@ program
 
       // Build consensus across merged model responses
       spinner.start('Building consensus');
-      const result = await buildConsensus(mergedResponses, config);
+      const diffFiles = diffResult.files.map(f => f.path);
+      const result = await buildConsensus(mergedResponses, config, diffFiles);
       spinner.succeed(
         `Consensus built: ${result.findings.length} finding${result.findings.length !== 1 ? 's' : ''}`
       );
