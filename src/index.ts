@@ -90,6 +90,29 @@ program
         spinner.info(`Split into ${chunks.length} chunks for processing`);
       }
 
+      // If --estimate flag is set, calculate and display cost estimate for ALL chunks
+      if (options.estimate) {
+        spinner.start('Building prompts for estimation');
+        const allPrompts = chunks.map(chunk =>
+          buildReviewPrompt(chunk, {
+            includeFixSuggestions: config.includeFixSuggestions,
+            promptHardening: config.promptHardening,
+          })
+        );
+        spinner.succeed(`Built ${chunks.length} prompt${chunks.length !== 1 ? 's' : ''} for estimation`);
+
+        const totalTokens = allPrompts.reduce((sum, prompt) => sum + estimateTokens(prompt), 0);
+        const estimates: ModelEstimate[] = config.models.map(m => ({
+          model: `${m.provider}/${m.model}`,
+          tokens: totalTokens,
+          cost: estimateCost(totalTokens, m.model),
+        }));
+
+        console.log(formatEstimate(estimates));
+        console.log(chalk.dim('Note: This is an estimate. Actual costs may vary.\n'));
+        process.exit(0);
+      }
+
       // Process all chunks and collect responses
       const allResponses: Awaited<ReturnType<typeof runReviews>> = [];
 
@@ -107,21 +130,6 @@ program
         spinner.succeed(chunks.length > 1
           ? `Chunk ${ci + 1}/${chunks.length} prompt built (${chunk.files.length} files)`
           : 'Prompt built');
-
-        // If --estimate flag is set, calculate and display cost estimate
-        if (options.estimate && ci === 0) {
-          spinner.stop();
-          const tokens = estimateTokens(prompt);
-          const estimates: ModelEstimate[] = config.models.map(m => ({
-            model: `${m.provider}/${m.model}`,
-            tokens,
-            cost: estimateCost(tokens, m.model),
-          }));
-
-          console.log(formatEstimate(estimates));
-          console.log(chalk.dim('Note: This is an estimate. Actual costs may vary.\n'));
-          process.exit(0);
-        }
 
         // Run reviews
         const modelSpinners = config.models.map(m => {
