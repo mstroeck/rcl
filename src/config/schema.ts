@@ -6,7 +6,7 @@ export const ModelConfigSchema = z.object({
   apiKey: z.string().optional(),
   baseUrl: z.string().optional(),
   temperature: z.number().min(0).max(2).default(0.3),
-  maxTokens: z.number().positive().default(4000),
+  maxTokens: z.number().positive().optional(), // omit to let models run unconstrained
 });
 
 export const ThresholdConfigSchema = z.object({

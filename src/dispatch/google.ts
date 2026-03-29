@@ -33,24 +33,15 @@ export class GoogleAdapter implements ReviewAdapter {
     const genAI = this.client;
 
     try {
-      // Thinking models (gemini-2.5-*, gemini-3-*) use thinking tokens from the output budget.
-      // Cap thinking budget so findings actually get generated, and bump maxOutputTokens.
-      const isThinkingModel = /^gemini-(2\.5|3)/.test(request.model.model);
-      const maxOutputTokens = isThinkingModel
-        ? Math.max(request.model.maxTokens, 65536) // ensure enough room for thinking + output
-        : request.model.maxTokens;
-
+      // Let models run unconstrained by default — no maxOutputTokens unless explicitly configured
       const generationConfig: Record<string, unknown> = {
         temperature: request.model.temperature,
-        maxOutputTokens,
         responseMimeType: 'application/json',
       };
 
-      // Limit thinking budget so it doesn't consume all output tokens
-      if (isThinkingModel) {
-        generationConfig.thinkingConfig = {
-          thinkingBudget: 8192,
-        };
+      // Only set maxOutputTokens if user explicitly configured it
+      if (request.model.maxTokens) {
+        generationConfig.maxOutputTokens = request.model.maxTokens;
       }
 
       const model = genAI.getGenerativeModel({

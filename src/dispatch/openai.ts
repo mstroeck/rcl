@@ -37,9 +37,12 @@ export class OpenAIAdapter implements ReviewAdapter {
       // Use capability system to determine model features
       const capabilities = getModelCapabilities(request.model.model);
 
-      const tokenParam = capabilities.usesCompletionTokens
-        ? { max_completion_tokens: request.model.maxTokens }
-        : { max_tokens: request.model.maxTokens };
+      // Only set token limits if explicitly configured
+      const tokenParam = request.model.maxTokens
+        ? (capabilities.usesCompletionTokens
+            ? { max_completion_tokens: request.model.maxTokens }
+            : { max_tokens: request.model.maxTokens })
+        : {};
 
       // Only include temperature and response_format if supported
       const tempParam = capabilities.supportsTemperature ? { temperature: request.model.temperature } : {};

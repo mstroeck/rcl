@@ -39,7 +39,7 @@ export class AnthropicAdapter implements ReviewAdapter {
       try {
         const response = await client.messages.create({
           model: request.model.model,
-          max_tokens: request.model.maxTokens,
+          max_tokens: request.model.maxTokens || 32768, // Anthropic requires this field; generous default when unconfigured
           temperature: request.model.temperature,
           messages: [
             {
