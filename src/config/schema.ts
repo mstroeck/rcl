@@ -37,6 +37,8 @@ export const ReviewConfigSchema = z.object({
   include: z.array(z.string()).default([]),
   context: z.string().optional(),
   policy: PolicyConfigSchema.optional(),
+  maxCostPerRun: z.number().positive().optional(), // USD
+  stopAfterFindings: z.number().int().positive().optional(),
 });
 
 export type ModelConfig = z.infer<typeof ModelConfigSchema>;

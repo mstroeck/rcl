@@ -55,6 +55,8 @@ program
   .option('--require-consensus <count>', 'Minimum models that must agree for blocking finding', parseInt)
   .option('--soft-fail', 'Report findings but always exit 0 (for CI)')
   .option('--show-disagreements', 'Show disagreement analysis (default: on in verbose mode)')
+  .option('--max-cost <usd>', 'Maximum cost in USD for this review run', parseFloat)
+  .option('--stop-after-findings <count>', 'Stop early when enough blocking findings found', parseInt)
   .action(async (target, options) => {
     try {
       const spinner = ora('Loading configuration').start();
@@ -151,7 +153,11 @@ program
       }
 
       // Process all chunks and collect responses
+      const diffFiles = diffResult.files.map(f => f.path);
       const allResponses: Awaited<ReturnType<typeof runReviews>> = [];
+      const maxCost = options.maxCost || config.maxCostPerRun;
+      let accumulatedCost = 0;
+      let budgetExceeded = false;
 
       for (let ci = 0; ci < chunks.length; ci++) {
         const chunk = chunks[ci];
@@ -168,6 +174,21 @@ program
         spinner.succeed(chunks.length > 1
           ? `Chunk ${ci + 1}/${chunks.length} prompt built (${chunk.files.length} files)`
           : 'Prompt built');
+
+        // Check budget before running this chunk
+        if (maxCost !== undefined) {
+          const promptTokens = estimateTokens(prompt);
+          const chunkEstimate = config.models.reduce((sum, m) => {
+            return sum + estimateCost(promptTokens, m.model).total;
+          }, 0);
+
+          if (accumulatedCost + chunkEstimate > maxCost) {
+            console.log(chalk.yellow(`\n⚠️  Budget limit reached ($${accumulatedCost.toFixed(4)} + $${chunkEstimate.toFixed(4)} would exceed $${maxCost.toFixed(2)})`));
+            console.log(chalk.yellow(`   Stopping after chunk ${ci}/${chunks.length}. Returning partial results.\n`));
+            budgetExceeded = true;
+            break;
+          }
+        }
 
         // Run reviews
         const modelSpinners = config.models.map(m => {
@@ -192,7 +213,7 @@ program
           }
         );
 
-        // Update spinners
+        // Update spinners and track cost
         for (let i = 0; i < responses.length; i++) {
           const resp = responses[i];
           const ms = modelSpinners[i];
@@ -201,12 +222,70 @@ program
               ? ` | ${resp.tokenUsage.inputTokens}→${resp.tokenUsage.outputTokens} tokens`
               : '';
             ms.spinner.succeed(`${ms.provider} completed (${resp.durationMs}ms${tokenInfo})`);
+            // Track actual cost if available
+            if (resp.tokenUsage) {
+              const actualCost = estimateCost(resp.tokenUsage.totalTokens, config.models[i].model).total;
+              accumulatedCost += actualCost;
+            }
           } else {
             ms.spinner.fail(`${ms.provider} failed: ${resp.error}`);
           }
         }
 
         allResponses.push(...responses);
+
+        // Check if we should stop early based on findings count
+        const stopAfterFindings = options.stopAfterFindings || config.stopAfterFindings;
+        if (stopAfterFindings !== undefined && allResponses.length > 0) {
+          // Do a quick consensus check with current responses
+          const tempMerged = new Map<string, typeof allResponses[0]>();
+          for (const resp of allResponses) {
+            const key = `${resp.provider}/${resp.model}`;
+            const existing = tempMerged.get(key);
+            if (!existing) {
+              tempMerged.set(key, { ...resp });
+            } else {
+              try {
+                const existingFindings = JSON.parse(existing.rawResponse || '[]');
+                const newFindings = JSON.parse(resp.rawResponse || '[]');
+                existing.rawResponse = JSON.stringify([
+                  ...(Array.isArray(existingFindings) ? existingFindings : []),
+                  ...(Array.isArray(newFindings) ? newFindings : []),
+                ]);
+              } catch (error) {
+                // Ignore merge errors during check
+              }
+            }
+          }
+          const tempConsensus = await buildConsensus([...tempMerged.values()], config, diffFiles);
+
+          // Count blocking findings based on policy
+          let blockingFindings = 0;
+          if (options.failOn || config.policy?.failOn) {
+            const policy = {
+              failOn: options.failOn || config.policy?.failOn || 'high',
+              requireConsensus: options.requireConsensus || config.policy?.requireConsensus || 1,
+              categories: config.policy?.categories,
+              ignoreCategories: config.policy?.ignoreCategories || [],
+            };
+            const tempPolicy = evaluatePolicy(tempConsensus.findings, policy);
+            blockingFindings = tempPolicy.blockingFindings.length;
+          } else {
+            // No policy, count all findings
+            blockingFindings = tempConsensus.findings.length;
+          }
+
+          if (blockingFindings >= stopAfterFindings) {
+            console.log(chalk.yellow(`\n✋ Stopping early: found ${blockingFindings} blocking findings (threshold: ${stopAfterFindings})`));
+            console.log(chalk.yellow(`   Processed ${ci + 1}/${chunks.length} chunks\n`));
+            break;
+          }
+        }
+      }
+
+      if (budgetExceeded && allResponses.length === 0) {
+        console.log(chalk.yellow('No chunks were processed due to budget constraints.'));
+        process.exit(0);
       }
 
       // Merge responses from same model across chunks before consensus
@@ -247,7 +326,6 @@ program
 
       // Build consensus across merged model responses
       spinner.start('Building consensus');
-      const diffFiles = diffResult.files.map(f => f.path);
       const result = await buildConsensus(mergedResponses, config, diffFiles);
       spinner.succeed(
         `Consensus built: ${result.findings.length} finding${result.findings.length !== 1 ? 's' : ''}`
