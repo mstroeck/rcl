@@ -2,6 +2,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import { ReviewAdapter, ReviewRequest, ReviewResponse } from './adapter.js';
 
 export class AnthropicAdapter implements ReviewAdapter {
+  private client: Anthropic | null = null;
+  private cachedApiKey: string | null = null;
+
   getName(): string {
     return 'anthropic';
   }
@@ -21,11 +24,20 @@ export class AnthropicAdapter implements ReviewAdapter {
       };
     }
 
-    const client = new Anthropic({ apiKey });
+    // Cache client instance, recreate only if API key changes
+    if (!this.client || this.cachedApiKey !== apiKey) {
+      this.client = new Anthropic({ apiKey });
+      this.cachedApiKey = apiKey;
+    }
+
+    const client = this.client;
 
     try {
-      const response = await Promise.race([
-        client.messages.create({
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), request.timeout * 1000);
+
+      try {
+        const response = await client.messages.create({
           model: request.model.model,
           max_tokens: request.model.maxTokens,
           temperature: request.model.temperature,
@@ -66,26 +78,38 @@ export class AnthropicAdapter implements ReviewAdapter {
             },
           ],
           tool_choice: { type: 'tool', name: 'report_findings' },
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout')), request.timeout * 1000)
-        ),
-      ]);
+        }, {
+          signal: abortController.signal,
+        });
+        clearTimeout(timeoutId);
 
-      const toolUse = response.content.find(block => block.type === 'tool_use');
-      if (!toolUse || toolUse.type !== 'tool_use') {
-        throw new Error('No tool use in response');
+        const toolUse = response.content.find(block => block.type === 'tool_use');
+        if (!toolUse || toolUse.type !== 'tool_use') {
+          throw new Error('No tool use in response');
+        }
+
+        // Type-safe validation of toolUse.input
+        let findings = [];
+        if (
+          toolUse.input &&
+          typeof toolUse.input === 'object' &&
+          'findings' in toolUse.input &&
+          Array.isArray((toolUse.input as Record<string, unknown>).findings)
+        ) {
+          findings = (toolUse.input as Record<string, unknown>).findings;
+        }
+
+        return {
+          provider: 'anthropic',
+          model: request.model.model,
+          rawResponse: JSON.stringify(findings),
+          success: true,
+          durationMs: Date.now() - startTime,
+        };
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
       }
-
-      const findings = (toolUse.input as any).findings || [];
-
-      return {
-        provider: 'anthropic',
-        model: request.model.model,
-        rawResponse: JSON.stringify(findings),
-        success: true,
-        durationMs: Date.now() - startTime,
-      };
     } catch (error) {
       return {
         provider: 'anthropic',

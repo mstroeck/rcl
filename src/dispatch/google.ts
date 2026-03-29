@@ -2,6 +2,9 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ReviewAdapter, ReviewRequest, ReviewResponse } from './adapter.js';
 
 export class GoogleAdapter implements ReviewAdapter {
+  private client: GoogleGenerativeAI | null = null;
+  private cachedApiKey: string | null = null;
+
   getName(): string {
     return 'google';
   }
@@ -21,7 +24,13 @@ export class GoogleAdapter implements ReviewAdapter {
       };
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
+    // Cache client instance, recreate only if API key changes
+    if (!this.client || this.cachedApiKey !== apiKey) {
+      this.client = new GoogleGenerativeAI(apiKey);
+      this.cachedApiKey = apiKey;
+    }
+
+    const genAI = this.client;
 
     try {
       const model = genAI.getGenerativeModel({
@@ -33,12 +42,21 @@ export class GoogleAdapter implements ReviewAdapter {
         },
       });
 
-      const response = await Promise.race([
-        model.generateContent(request.prompt),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout')), request.timeout * 1000)
-        ),
-      ]);
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), request.timeout * 1000);
+
+      let response;
+      try {
+        response = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: request.prompt }] }],
+        }, {
+          signal: abortController.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
 
       const text = response.response.text();
 

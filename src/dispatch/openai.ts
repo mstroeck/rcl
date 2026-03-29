@@ -2,6 +2,9 @@ import OpenAI from 'openai';
 import { ReviewAdapter, ReviewRequest, ReviewResponse } from './adapter.js';
 
 export class OpenAIAdapter implements ReviewAdapter {
+  private client: OpenAI | null = null;
+  private cachedApiKey: string | null = null;
+
   getName(): string {
     return 'openai';
   }
@@ -21,7 +24,13 @@ export class OpenAIAdapter implements ReviewAdapter {
       };
     }
 
-    const client = new OpenAI({ apiKey });
+    // Cache client instance, recreate only if API key changes
+    if (!this.client || this.cachedApiKey !== apiKey) {
+      this.client = new OpenAI({ apiKey });
+      this.cachedApiKey = apiKey;
+    }
+
+    const client = this.client;
 
     try {
       // Newer OpenAI models (o3, gpt-5.x, etc.) use max_completion_tokens instead of max_tokens
@@ -30,8 +39,12 @@ export class OpenAIAdapter implements ReviewAdapter {
         ? { max_completion_tokens: request.model.maxTokens }
         : { max_tokens: request.model.maxTokens };
 
-      const response = await Promise.race([
-        client.chat.completions.create({
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), request.timeout * 1000);
+
+      let response;
+      try {
+        response = await client.chat.completions.create({
           model: request.model.model,
           temperature: request.model.temperature,
           ...tokenParam,
@@ -42,11 +55,14 @@ export class OpenAIAdapter implements ReviewAdapter {
             },
           ],
           response_format: { type: 'json_object' },
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout')), request.timeout * 1000)
-        ),
-      ]);
+        }, {
+          signal: abortController.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
 
       const content = response.choices[0]?.message?.content || '[]';
 
