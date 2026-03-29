@@ -38,19 +38,23 @@ export function parseReviewResponse(response: ReviewResponse): ModelReview {
     }
 
     // Validate each finding
+    let invalidCount = 0;
     const validFindings = findings
       .map((f, idx) => {
         try {
           return FindingSchema.parse(f);
         } catch (error) {
-          console.warn(
-            `Invalid finding from ${response.provider}/${response.model} at index ${idx}:`,
-            error instanceof z.ZodError ? error.errors : error
-          );
+          invalidCount++;
           return null;
         }
       })
       .filter((f): f is NonNullable<typeof f> => f !== null);
+
+    if (invalidCount > 0) {
+      console.warn(
+        `${invalidCount} finding${invalidCount !== 1 ? 's' : ''} from ${response.provider}/${response.model} ${invalidCount !== 1 ? 'were' : 'was'} invalid and dropped`
+      );
+    }
 
     return {
       provider: response.provider,
@@ -77,15 +81,21 @@ export function parseAllReviews(responses: ReviewResponse[]): ModelReview[] {
 
 export function validateFindings(findings: Finding[], diffFiles: string[]): Finding[] {
   const validFindings: Finding[] = [];
+  const droppedFiles = new Set<string>();
 
   for (const finding of findings) {
     if (diffFiles.includes(finding.file)) {
       validFindings.push(finding);
     } else {
-      console.warn(
-        `Dropped finding for non-existent file: ${finding.file} (not in diff)`
-      );
+      droppedFiles.add(finding.file);
     }
+  }
+
+  if (droppedFiles.size > 0) {
+    const fileList = Array.from(droppedFiles).join(', ');
+    console.warn(
+      `${droppedFiles.size} finding${droppedFiles.size !== 1 ? 's' : ''} dropped for non-existent file${droppedFiles.size !== 1 ? 's' : ''}: ${fileList}`
+    );
   }
 
   return validFindings;
