@@ -42,7 +42,7 @@ export function formatJsonOutput(result: ConsensusResult): string {
       error: r.error,
       findingsCount: r.findings.length,
       durationMs: r.durationMs,
-      tokenUsage: r.tokenUsage,
+      tokenUsage: r.tokenUsage || null,
     })),
   };
 

@@ -26,10 +26,10 @@ const NON_RETRYABLE_HTTP_CODES = [400, 401, 403];
 function isRetryableError(error: unknown): boolean {
   if (!error) return false;
 
-  const err = error as any;
+  const err = error as Record<string, unknown>;
 
   // Check HTTP status codes
-  if (err.status && typeof err.status === 'number') {
+  if (typeof err.status === 'number') {
     if (NON_RETRYABLE_HTTP_CODES.includes(err.status)) {
       return false;
     }
@@ -39,14 +39,14 @@ function isRetryableError(error: unknown): boolean {
   }
 
   // Check error codes
-  if (err.code && typeof err.code === 'string') {
+  if (typeof err.code === 'string') {
     if (RETRYABLE_ERROR_CODES.includes(err.code)) {
       return true;
     }
   }
 
   // Check error message for common network issues
-  if (err.message && typeof err.message === 'string') {
+  if (typeof err.message === 'string') {
     const msg = err.message.toLowerCase();
     if (
       msg.includes('timeout') ||
@@ -65,11 +65,13 @@ function isRetryableError(error: unknown): boolean {
  * Extract Retry-After header from error (in seconds)
  */
 function getRetryAfter(error: unknown): number | null {
-  const err = error as any;
+  const err = error as Record<string, unknown>;
+  const response = err.response as Record<string, unknown> | undefined;
+  const headers = response?.headers as Record<string, string> | undefined;
 
   // Check for Retry-After header in response
-  if (err.response?.headers?.['retry-after']) {
-    const retryAfter = err.response.headers['retry-after'];
+  if (headers?.['retry-after']) {
+    const retryAfter = headers['retry-after'];
     const parsed = parseInt(retryAfter, 10);
     return isNaN(parsed) ? null : parsed;
   }

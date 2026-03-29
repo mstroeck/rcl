@@ -37,7 +37,7 @@ export const ReviewConfigSchema = z.object({
   include: z.array(z.string()).default([]),
   context: z.string().optional(),
   policy: PolicyConfigSchema.optional(),
-  maxCostPerRun: z.number().positive().optional(), // USD
+  maxCostPerRun: z.number().min(0.01).optional(), // USD, minimum $0.01
   stopAfterFindings: z.number().int().positive().optional(),
 });
 

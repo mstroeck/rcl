@@ -20,6 +20,12 @@ export const DEFAULT_IGNORE_PATTERNS = [
   'out/**',
   'coverage/**',
   '.cache/**',
+  '.env',
+  '.env.*',
+  '*.pem',
+  '*.key',
+  '*.p12',
+  '*.pfx',
 ];
 
 /**

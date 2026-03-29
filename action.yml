@@ -73,26 +73,26 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         # Build command arguments
-        ARGS="--ci --post --post-mode ${{ inputs.post-mode }} --github-token $GITHUB_TOKEN"
+        ARGS="--ci --post --post-mode '${{ inputs.post-mode }}' --github-token $GITHUB_TOKEN"
 
         if [ -n "${{ inputs.models }}" ]; then
-          ARGS="$ARGS --models ${{ inputs.models }}"
+          ARGS="$ARGS --models '${{ inputs.models }}'"
         fi
 
         if [ -n "${{ inputs.fail-on }}" ]; then
-          ARGS="$ARGS --fail-on ${{ inputs.fail-on }}"
+          ARGS="$ARGS --fail-on '${{ inputs.fail-on }}'"
         fi
 
         if [ -n "${{ inputs.ignore }}" ]; then
-          ARGS="$ARGS --ignore ${{ inputs.ignore }}"
+          ARGS="$ARGS --ignore '${{ inputs.ignore }}'"
         fi
 
         if [ -n "${{ inputs.require-consensus }}" ]; then
-          ARGS="$ARGS --require-consensus ${{ inputs.require-consensus }}"
+          ARGS="$ARGS --require-consensus '${{ inputs.require-consensus }}'"
         fi
 
         if [ -n "${{ inputs.max-cost }}" ]; then
-          ARGS="$ARGS --max-cost ${{ inputs.max-cost }}"
+          ARGS="$ARGS --max-cost '${{ inputs.max-cost }}'"
         fi
 
         if [ "${{ inputs.soft-fail }}" = "true" ]; then

@@ -129,7 +129,7 @@ export function formatMarkdownOutput(result: ConsensusResult, showDisagreements:
       for (const dis of severityDisagreements) {
         const key = `${dis.finding.file}:${dis.finding.line}`;
         if (!grouped.has(key)) grouped.set(key, []);
-        grouped.get(key)!.push(dis);
+        grouped.get(key)?.push(dis);
       }
 
       for (const [location, findings] of grouped.entries()) {

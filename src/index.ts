@@ -127,7 +127,7 @@ program
         );
       }
 
-      // Update diffResult with filtered files
+      // Replace files array with filtered version (intentional mutation for downstream use)
       diffResult.files = filteredFiles;
 
       if (diffResult.files.length === 0) {
@@ -260,7 +260,7 @@ program
               : '';
             ms.spinner.succeed(`${ms.provider} completed (${resp.durationMs}ms${tokenInfo})`);
             // Track actual cost if available
-            if (resp.tokenUsage) {
+            if (resp.tokenUsage && i < config.models.length) {
               const actualCost = estimateCost(resp.tokenUsage.totalTokens, config.models[i].model).total;
               accumulatedCost += actualCost;
             }
@@ -432,10 +432,15 @@ program
           console.log(chalk.yellow('⚠️  Cannot post to GitHub: target is not a GitHub PR'));
         } else {
           // Determine post mode (default to inline)
-          let postMode = options.postMode || (options.inline ? 'inline' : 'inline');
-          if (!['comment', 'inline', 'both'].includes(postMode)) {
+          const validPostModes = ['comment', 'inline', 'both'] as const;
+          let postMode: string = options.postMode || (options.inline ? 'inline' : 'inline');
+          if (!validPostModes.includes(postMode as typeof validPostModes[number])) {
             console.log(chalk.yellow(`⚠️  Invalid --post-mode: ${postMode}. Using 'inline'.`));
             postMode = 'inline';
+          }
+          // If both --post and --inline are explicitly set, use 'both'
+          if (options.post && options.inline && !options.postMode) {
+            postMode = 'both';
           }
 
           const ghOptions = {
