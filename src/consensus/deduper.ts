@@ -62,10 +62,17 @@ function isMatchingFinding(
   }
 
   // Check if lines overlap or are within threshold
-  const lineDistance = Math.min(
-    Math.abs(finding.line - group.lineRange.start),
-    Math.abs(finding.line - group.lineRange.end)
-  );
+  let lineDistance: number;
+  if (finding.line >= group.lineRange.start && finding.line <= group.lineRange.end) {
+    // Line is inside the range, distance is 0
+    lineDistance = 0;
+  } else {
+    // Line is outside the range, calculate distance to nearest boundary
+    lineDistance = Math.min(
+      Math.abs(finding.line - group.lineRange.start),
+      Math.abs(finding.line - group.lineRange.end)
+    );
+  }
 
   if (lineDistance > threshold) {
     return false;
