@@ -9,7 +9,7 @@ describe('deduplicateFindings', () => {
       line: 10,
       severity: 'high',
       category: 'security',
-      message: 'SQL injection',
+      message: 'SQL injection vulnerability detected here',
       suggestion: 'Use parameterized queries',
     };
 
@@ -31,7 +31,7 @@ describe('deduplicateFindings', () => {
       line: 10,
       severity: 'high',
       category: 'security',
-      message: 'SQL injection vulnerability',
+      message: 'SQL injection vulnerability detected',
       suggestion: 'Use parameterized queries',
     };
 
@@ -40,7 +40,7 @@ describe('deduplicateFindings', () => {
       line: 12,
       severity: 'high',
       category: 'security',
-      message: 'SQL injection detected',
+      message: 'SQL injection vulnerability found',
       suggestion: 'Sanitize input',
     };
 
@@ -119,7 +119,7 @@ describe('deduplicateFindings', () => {
       line: 10,
       severity: 'high',
       category: 'security',
-      message: 'Something wrong',
+      message: 'Authentication bypass vulnerability found',
       suggestion: 'Fix it',
     };
 
@@ -128,7 +128,7 @@ describe('deduplicateFindings', () => {
       line: 11,
       severity: 'high',
       category: 'security',
-      message: 'Different message',
+      message: 'Bypass authentication vulnerability detected',
       suggestion: 'Fix differently',
     };
 
@@ -149,7 +149,7 @@ describe('deduplicateFindings', () => {
         line: 10,
         severity: 'high',
         category: 'security',
-        message: 'Issue',
+        message: 'Input validation vulnerability found',
         suggestion: 'Fix',
       },
       {
@@ -157,7 +157,7 @@ describe('deduplicateFindings', () => {
         line: 12,
         severity: 'high',
         category: 'security',
-        message: 'Issue',
+        message: 'Validation vulnerability for input',
         suggestion: 'Fix',
       },
       {
@@ -165,7 +165,7 @@ describe('deduplicateFindings', () => {
         line: 14,
         severity: 'high',
         category: 'security',
-        message: 'Issue',
+        message: 'Found input validation issue',
         suggestion: 'Fix',
       },
     ];

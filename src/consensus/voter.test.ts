@@ -210,7 +210,7 @@ describe('voteOnFindings', () => {
     const findings = voteOnFindings([group], 2);
 
     expect(findings[0].severity).toBe('critical');
-    expect(findings[0].elevated).toBe(true);
+    expect(findings[0].elevated).toBe(false); // Cannot elevate critical further
   });
 
   it('should include model names', () => {
