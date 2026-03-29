@@ -1,10 +1,17 @@
 import fs from 'fs/promises';
+import path from 'path';
 import parseDiff from 'parse-diff';
 import { DiffResult, FileChange } from './types.js';
 
 export async function readLocalDiff(patchPath: string): Promise<DiffResult> {
   try {
-    const content = await fs.readFile(patchPath, 'utf-8');
+    // Normalize and resolve the path
+    const resolvedPath = path.resolve(patchPath);
+
+    // Verify the file exists and is readable
+    await fs.access(resolvedPath, fs.constants.R_OK);
+
+    const content = await fs.readFile(resolvedPath, 'utf-8');
     return parseDiffContent(content);
   } catch (error) {
     if (error instanceof Error) {
@@ -26,9 +33,14 @@ export function parseDiffContent(diffContent: string): DiffResult {
     // Reconstruct the diff for this file
     const chunks = file.chunks.map(chunk => {
       const lines = chunk.changes.map(change => {
-        if (change.type === 'add') return `+${change.content}`;
-        if (change.type === 'del') return `-${change.content}`;
-        return ` ${change.content}`;
+        // parse-diff already includes the prefix in change.content
+        if (change.type === 'add') {
+          return change.content.startsWith('+') ? change.content : `+${change.content}`;
+        }
+        if (change.type === 'del') {
+          return change.content.startsWith('-') ? change.content : `-${change.content}`;
+        }
+        return change.content.startsWith(' ') ? change.content : ` ${change.content}`;
       });
       return `@@ -${chunk.oldStart},${chunk.oldLines} +${chunk.newStart},${chunk.newLines} @@\n${lines.join('\n')}`;
     });
