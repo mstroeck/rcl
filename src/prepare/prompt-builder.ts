@@ -2,6 +2,7 @@ import { FileChange } from '../resolver/types.js';
 import { detectLanguage, getLanguageContext } from './language.js';
 import { DiffChunk } from './chunker.js';
 import { createBoundary, wrapWithBoundary } from '../prompts/hardening.js';
+import { getLanguagePrompt } from '../prompts/languages/index.js';
 
 export interface PromptOptions {
   includeFixSuggestions: boolean;
@@ -34,6 +35,27 @@ Focus on:
 
   if (options.includeFixSuggestions) {
     prompt += 'For each issue, provide a specific fix suggestion.\n\n';
+  }
+
+  // Collect unique languages and build language-specific instructions
+  const languages = new Set<string>();
+  for (const file of files) {
+    const language = detectLanguage(file.path);
+    if (language) {
+      languages.add(language);
+    }
+  }
+
+  // Add language-specific prompts (deduplicated)
+  if (languages.size > 0) {
+    for (const language of languages) {
+      const languagePrompt = getLanguagePrompt(language);
+      if (languagePrompt) {
+        prompt += languagePrompt;
+        prompt += '\n';
+      }
+    }
+    prompt += '\n';
   }
 
   // Build the diff content

@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { ConsensusResult } from '../consensus/index.js';
 import { formatMarkdownOutput } from './markdown.js';
+import { parseDiffPositions } from './diff-position.js';
 
 export interface GitHubPostOptions {
   owner: string;
@@ -49,7 +50,25 @@ export async function createReviewComments(
       pull_number: options.prNumber,
     });
 
-    const comments = result.findings.map(finding => {
+    // Fetch file patches to build diff position maps
+    const { data: files } = await octokit.pulls.listFiles({
+      owner: options.owner,
+      repo: options.repo,
+      pull_number: options.prNumber,
+    });
+
+    // Build a map of file path to diff positions
+    const filePatchMaps = new Map<string, Map<number, number>>();
+    for (const file of files) {
+      if (file.patch) {
+        filePatchMaps.set(file.filename, parseDiffPositions(file.patch));
+      }
+    }
+
+    const comments: Array<{ path: string; position: number; body: string }> = [];
+    const unmappableFindings: string[] = [];
+
+    for (const finding of result.findings) {
       const consensus = Math.round(finding.consensusScore * 100);
       let body = `**${finding.severity.toUpperCase()}** - ${finding.category}\n\n`;
       body += `${finding.message}\n\n`;
@@ -65,12 +84,32 @@ export async function createReviewComments(
       body += `\n\n**Suggestion**: ${finding.suggestion}`;
       body += `\n\n*Models: ${finding.models.join(', ')}*`;
 
-      return {
-        path: finding.file,
-        line: finding.line,
-        body,
-      };
-    });
+      // Look up the diff position for this finding
+      const positionMap = filePatchMaps.get(finding.file);
+      const position = positionMap?.get(finding.line);
+
+      if (position !== undefined) {
+        comments.push({
+          path: finding.file,
+          position,
+          body,
+        });
+      } else {
+        // Line not in diff - include in review body instead
+        unmappableFindings.push(
+          `- **${finding.file}:${finding.line}** - ${finding.severity.toUpperCase()}: ${finding.message}`
+        );
+      }
+    }
+
+    // Build review body with unmappable findings
+    let reviewBody = '';
+    if (unmappableFindings.length > 0) {
+      reviewBody =
+        '## Findings on unchanged lines\n\n' +
+        'The following findings are on lines not modified in this PR:\n\n' +
+        unmappableFindings.join('\n');
+    }
 
     await octokit.pulls.createReview({
       owner: options.owner,
@@ -78,7 +117,8 @@ export async function createReviewComments(
       pull_number: options.prNumber,
       commit_id: pr.head.sha,
       event: 'COMMENT',
-      comments,
+      body: reviewBody || undefined,
+      comments: comments.length > 0 ? comments : undefined,
     });
   } catch (error) {
     throw new Error(
