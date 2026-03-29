@@ -1,3 +1,4 @@
+# NOTE: This patch intentionally contains security vulnerabilities for testing purposes.
 diff --git a/src/auth.ts b/src/auth.ts
 new file mode 100644
 index 0000000..1234567
