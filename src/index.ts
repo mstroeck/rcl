@@ -38,7 +38,8 @@ program
   .option('--output <file>', 'Write output to file')
   .option('--ci', 'CI mode (exit with error if issues found)')
   .option('--timeout <seconds>', 'Timeout per model in seconds', parseFloat)
-  .option('--verbose', 'Include fix suggestions in output')
+  .option('--fix-suggestions', 'Include fix suggestions in output')
+  .option('--verbose', 'Alias for --fix-suggestions (backwards compatibility)')
   .option('--github-token <token>', 'GitHub token for API access')
   .option('--estimate', 'Estimate token count and cost without running review')
   .action(async (target, options) => {
@@ -49,7 +50,7 @@ program
       const config = await getConfig({
         models: options.models,
         timeout: options.timeout,
-        verbose: options.verbose,
+        verbose: options.verbose || options.fixSuggestions,
       });
 
       spinner.succeed('Configuration loaded');
@@ -183,7 +184,7 @@ program
       } else if (options.markdown) {
         output = formatMarkdownOutput(result);
       } else {
-        output = formatTerminalOutput(result, options.verbose);
+        output = formatTerminalOutput(result, options.verbose || options.fixSuggestions);
       }
 
       if (options.output) {
