@@ -6,7 +6,7 @@ export interface Boundary {
 import { randomBytes } from 'crypto';
 
 export function createBoundary(): Boundary {
-  const nonce = randomBytes(4).toString('hex');
+  const nonce = randomBytes(16).toString('hex');
   return {
     start: `--- DIFF_${nonce}_START ---`,
     end: `--- DIFF_${nonce}_END ---`,

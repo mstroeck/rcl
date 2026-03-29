@@ -11,5 +11,6 @@ const LANGUAGE_PROMPTS: Record<string, string> = {
 };
 
 export function getLanguagePrompt(language: string): string | null {
+  if (!language) return null;
   return LANGUAGE_PROMPTS[language.toLowerCase()] || null;
 }

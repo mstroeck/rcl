@@ -51,7 +51,36 @@ const LANGUAGE_MAP: Record<string, string> = {
   toml: 'toml',
 };
 
+const DOTFILE_MAP: Record<string, string> = {
+  '.gitignore': 'text',
+  '.dockerignore': 'text',
+  '.env': 'config',
+  '.editorconfig': 'config',
+};
+
 export function detectLanguage(filePath: string): string {
+  const fileName = filePath.split('/').pop() || filePath;
+
+  // Handle dotfiles
+  if (fileName.startsWith('.')) {
+    // Check if it's a known dotfile
+    if (DOTFILE_MAP[fileName]) {
+      return DOTFILE_MAP[fileName];
+    }
+
+    // If it has only one dot (at the start), it's a dotfile without extension
+    const dotCount = (fileName.match(/\./g) || []).length;
+    if (dotCount === 1) {
+      return 'text';
+    }
+
+    // If it has multiple dots (e.g., .eslintrc.js), use the extension
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (ext) {
+      return LANGUAGE_MAP[ext] || 'text';
+    }
+  }
+
   const ext = filePath.split('.').pop()?.toLowerCase();
   if (!ext) return 'unknown';
   return LANGUAGE_MAP[ext] || 'unknown';
