@@ -14,6 +14,7 @@ import { formatJsonOutput } from './output/json.js';
 import { formatMarkdownOutput } from './output/markdown.js';
 import { postToGitHub, createReviewComments } from './output/github.js';
 import { parseGitHubURL } from './resolver/github.js';
+import { estimateTokens, estimateCost, formatEstimate, ModelEstimate } from './cost/estimator.js';
 import fs from 'fs/promises';
 
 const program = new Command();
@@ -39,6 +40,7 @@ program
   .option('--timeout <seconds>', 'Timeout per model in seconds', parseFloat)
   .option('--verbose', 'Include fix suggestions in output')
   .option('--github-token <token>', 'GitHub token for API access')
+  .option('--estimate', 'Estimate token count and cost without running review')
   .action(async (target, options) => {
     try {
       const spinner = ora('Loading configuration').start();
@@ -93,6 +95,21 @@ program
         spinner.succeed(chunks.length > 1
           ? `Chunk ${ci + 1}/${chunks.length} prompt built (${chunk.files.length} files)`
           : 'Prompt built');
+
+        // If --estimate flag is set, calculate and display cost estimate
+        if (options.estimate && ci === 0) {
+          spinner.stop();
+          const tokens = estimateTokens(prompt);
+          const estimates: ModelEstimate[] = config.models.map(m => ({
+            model: `${m.provider}/${m.model}`,
+            tokens,
+            cost: estimateCost(tokens, m.model),
+          }));
+
+          console.log(formatEstimate(estimates));
+          console.log(chalk.dim('Note: This is an estimate. Actual costs may vary.\n'));
+          process.exit(0);
+        }
 
         // Run reviews
         const modelSpinners = config.models.map(m => {
