@@ -18,15 +18,15 @@ export function voteOnFindings(
     // - 2/N models: elevate one level
     // - 3+ or N/N: elevate one level (capped at critical)
     let finalSeverity = representative.severity;
-    let elevated = false;
 
     if (modelCount >= 2 && !unanimous) {
       finalSeverity = elevateSeverity(representative.severity);
-      elevated = true;
     } else if (unanimous && totalModels >= 2) {
       finalSeverity = elevateSeverity(representative.severity);
-      elevated = true;
     }
+
+    // Only mark as elevated if severity actually changed
+    const elevated = finalSeverity !== representative.severity;
 
     const models = uniqueModels;
 
