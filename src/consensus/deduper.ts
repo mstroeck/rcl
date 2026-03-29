@@ -83,18 +83,28 @@ function isMatchingFinding(
     finding.message.toLowerCase().split(/\W+/).filter(w => w.length > 3)
   );
 
+  // Skip word overlap check if either set is empty (e.g., "XSS" or "IDOR")
+  if (findingWords.size === 0) {
+    return false;
+  }
+
   for (const grouped of group.findings) {
     const groupedWords = new Set(
       grouped.finding.message.toLowerCase().split(/\W+/).filter(w => w.length > 3)
     );
 
+    // Skip if the grouped finding has no significant words
+    if (groupedWords.size === 0) {
+      continue;
+    }
+
     const intersection = new Set(
       [...findingWords].filter(w => groupedWords.has(w))
     );
 
-    // If more than 30% overlap in significant words, consider it a match
+    // Require at least 2 overlapping words and >30% overlap ratio
     const overlapRatio = intersection.size / Math.min(findingWords.size, groupedWords.size);
-    if (overlapRatio > 0.3) {
+    if (intersection.size >= 2 && overlapRatio > 0.3) {
       return true;
     }
   }
