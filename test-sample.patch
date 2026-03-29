@@ -1,0 +1,22 @@
+# NOTE: This patch intentionally contains security vulnerabilities for testing purposes.
+diff --git a/src/auth.ts b/src/auth.ts
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/src/auth.ts
+@@ -0,0 +1,15 @@
++export function login(username: string, password: string) {
++  // TODO: Add authentication logic
++  const query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
++
++  if (username == "admin") {
++    return { token: "admin-token", admin: true };
++  }
++
++  return { token: "user-token" };
++}
++
++export function storePassword(password: string) {
++  localStorage.setItem('password', password);
++  return true;
++}
