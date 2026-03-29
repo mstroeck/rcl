@@ -99,12 +99,22 @@ export class AnthropicAdapter implements ReviewAdapter {
           findings = (toolUse.input as Record<string, unknown>).findings as any[];
         }
 
+        // Extract token usage from response
+        const tokenUsage = response.usage
+          ? {
+              inputTokens: response.usage.input_tokens || 0,
+              outputTokens: response.usage.output_tokens || 0,
+              totalTokens: (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0),
+            }
+          : undefined;
+
         return {
           provider: 'anthropic',
           model: request.model.model,
           rawResponse: JSON.stringify(findings),
           success: true,
           durationMs: Date.now() - startTime,
+          tokenUsage,
         };
       } catch (error) {
         clearTimeout(timeoutId);

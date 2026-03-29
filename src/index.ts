@@ -7,6 +7,7 @@ import { getConfig } from './config/loader.js';
 import { resolveDiff } from './resolver/index.js';
 import { chunkDiff } from './prepare/chunker.js';
 import { buildReviewPrompt } from './prepare/prompt-builder.js';
+import { filterFiles } from './prepare/file-filter.js';
 import { runReviews } from './dispatch/runner.js';
 import { buildConsensus } from './consensus/index.js';
 import { formatTerminalOutput } from './output/terminal.js';
@@ -42,6 +43,13 @@ program
   .option('--verbose', 'Alias for --fix-suggestions (backwards compatibility)')
   .option('--github-token <token>', 'GitHub token for API access')
   .option('--estimate', 'Estimate token count and cost without running review')
+  .option('--ignore <patterns>', 'Comma-separated glob patterns to ignore', (val) =>
+    val.split(',').map(s => s.trim())
+  )
+  .option('--include <patterns>', 'Comma-separated glob patterns to include', (val) =>
+    val.split(',').map(s => s.trim())
+  )
+  .option('--context <text>', 'Additional context about the codebase for reviewers')
   .action(async (target, options) => {
     try {
       const spinner = ora('Loading configuration').start();
@@ -75,12 +83,35 @@ program
         githubToken: options.githubToken,
       });
 
+      // Apply file filtering
+      const filterConfig = {
+        ignore: options.ignore || config.ignore || [],
+        include: options.include || config.include || [],
+      };
+      const filePaths = diffResult.files.map(f => f.path);
+      const filterResult = filterFiles(filePaths, filterConfig);
+
+      // Filter the files in diffResult
+      const filteredFiles = diffResult.files.filter(f => filterResult.included.includes(f.path));
+
       spinner.succeed(
-        `Resolved ${diffResult.files.length} file${diffResult.files.length !== 1 ? 's' : ''}`
+        `Resolved ${diffResult.files.length} file${diffResult.files.length !== 1 ? 's' : ''}` +
+        (filterResult.excluded.length > 0
+          ? ` (${filterResult.excluded.length} filtered out)`
+          : '')
       );
 
+      if (filterResult.excluded.length > 0) {
+        console.log(
+          chalk.dim(`  Excluded: ${filterResult.excluded.slice(0, 5).join(', ')}${filterResult.excluded.length > 5 ? ` +${filterResult.excluded.length - 5} more` : ''}`)
+        );
+      }
+
+      // Update diffResult with filtered files
+      diffResult.files = filteredFiles;
+
       if (diffResult.files.length === 0) {
-        console.log(chalk.yellow('⚠️  No files to review'));
+        console.log(chalk.yellow('⚠️  No files to review after filtering'));
         return;
       }
 
@@ -97,6 +128,7 @@ program
           buildReviewPrompt(chunk, {
             includeFixSuggestions: config.includeFixSuggestions,
             promptHardening: config.promptHardening,
+            context: options.context || config.context,
           })
         );
         spinner.succeed(`Built ${chunks.length} prompt${chunks.length !== 1 ? 's' : ''} for estimation`);
@@ -126,6 +158,7 @@ program
         const prompt = buildReviewPrompt(chunk, {
           includeFixSuggestions: config.includeFixSuggestions,
           promptHardening: config.promptHardening,
+          context: options.context || config.context,
         });
         spinner.succeed(chunks.length > 1
           ? `Chunk ${ci + 1}/${chunks.length} prompt built (${chunk.files.length} files)`
@@ -144,7 +177,14 @@ program
           prompt,
           config.models,
           config.timeout,
-          config.maxConcurrent
+          config.maxConcurrent,
+          undefined, // use default adapters
+          config.retries,
+          config.retryDelayMs,
+          (attempt, maxAttempts, provider, model) => {
+            // Log retry attempts
+            console.log(chalk.yellow(`  ↻ Retrying ${provider}/${model} (attempt ${attempt}/${maxAttempts})...`));
+          }
         );
 
         // Update spinners
@@ -152,7 +192,10 @@ program
           const resp = responses[i];
           const ms = modelSpinners[i];
           if (resp.success) {
-            ms.spinner.succeed(`${ms.provider} completed (${resp.durationMs}ms)`);
+            const tokenInfo = resp.tokenUsage
+              ? ` | ${resp.tokenUsage.inputTokens}→${resp.tokenUsage.outputTokens} tokens`
+              : '';
+            ms.spinner.succeed(`${ms.provider} completed (${resp.durationMs}ms${tokenInfo})`);
           } else {
             ms.spinner.fail(`${ms.provider} failed: ${resp.error}`);
           }
@@ -183,6 +226,16 @@ program
           existing.durationMs += resp.durationMs;
           existing.success = existing.success || resp.success;
           if (resp.error && !existing.error) existing.error = resp.error;
+          // Merge token usage
+          if (resp.tokenUsage) {
+            if (existing.tokenUsage) {
+              existing.tokenUsage.inputTokens += resp.tokenUsage.inputTokens;
+              existing.tokenUsage.outputTokens += resp.tokenUsage.outputTokens;
+              existing.tokenUsage.totalTokens += resp.tokenUsage.totalTokens;
+            } else {
+              existing.tokenUsage = { ...resp.tokenUsage };
+            }
+          }
         }
       }
       const mergedResponses = [...mergedByModel.values()];

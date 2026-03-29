@@ -24,6 +24,11 @@ export const ReviewConfigSchema = z.object({
   promptHardening: z.boolean().default(true),
   chunkSize: z.number().positive().default(2000),
   nearMatchThreshold: z.number().positive().default(5),
+  retries: z.number().int().min(0).max(10).default(2),
+  retryDelayMs: z.number().int().min(100).max(30000).default(1000),
+  ignore: z.array(z.string()).default([]),
+  include: z.array(z.string()).default([]),
+  context: z.string().optional(),
 });
 
 export type ModelConfig = z.infer<typeof ModelConfigSchema>;

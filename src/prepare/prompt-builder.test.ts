@@ -219,4 +219,50 @@ describe('buildReviewPrompt', () => {
     expect(promptWithoutHardening).toContain('--- Diff ---');
     expect(promptWithoutHardening).toContain('--- End Diff ---');
   });
+
+  it('should include custom context when provided', () => {
+    const chunk: DiffChunk = {
+      files: [
+        {
+          path: 'src/test.ts',
+          type: 'modified',
+          diff: '+const x = 1;',
+          additions: 1,
+          deletions: 0,
+        },
+      ],
+      estimatedTokens: 100,
+    };
+
+    const prompt = buildReviewPrompt(chunk, {
+      includeFixSuggestions: true,
+      promptHardening: false,
+      context: 'This is a microservices architecture using gRPC for inter-service communication',
+    });
+
+    expect(prompt).toContain('Additional context about this codebase:');
+    expect(prompt).toContain('microservices architecture using gRPC');
+  });
+
+  it('should not include context section when context is not provided', () => {
+    const chunk: DiffChunk = {
+      files: [
+        {
+          path: 'src/test.ts',
+          type: 'modified',
+          diff: '+const x = 1;',
+          additions: 1,
+          deletions: 0,
+        },
+      ],
+      estimatedTokens: 100,
+    };
+
+    const prompt = buildReviewPrompt(chunk, {
+      includeFixSuggestions: true,
+      promptHardening: false,
+    });
+
+    expect(prompt).not.toContain('Additional context about this codebase:');
+  });
 });

@@ -8,6 +8,7 @@ export interface PromptOptions {
   includeFixSuggestions: boolean;
   promptHardening: boolean;
   language?: string;
+  context?: string;
 }
 
 // Helper function to escape triple backticks in diff content
@@ -35,6 +36,11 @@ Focus on:
 
   if (options.includeFixSuggestions) {
     prompt += 'For each issue, provide a specific fix suggestion.\n\n';
+  }
+
+  // Add custom context if provided
+  if (options.context) {
+    prompt += `Additional context about this codebase:\n${options.context}\n\n`;
   }
 
   // Collect unique languages and build language-specific instructions

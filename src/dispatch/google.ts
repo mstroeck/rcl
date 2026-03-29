@@ -81,12 +81,22 @@ export class GoogleAdapter implements ReviewAdapter {
         parsed = match ? JSON.parse(match[0]) : [];
       }
 
+      // Extract token usage from response
+      const tokenUsage = response.response.usageMetadata
+        ? {
+            inputTokens: response.response.usageMetadata.promptTokenCount || 0,
+            outputTokens: response.response.usageMetadata.candidatesTokenCount || 0,
+            totalTokens: response.response.usageMetadata.totalTokenCount || 0,
+          }
+        : undefined;
+
       return {
         provider: 'google',
         model: request.model.model,
         rawResponse: JSON.stringify(parsed),
         success: true,
         durationMs: Date.now() - startTime,
+        tokenUsage,
       };
     } catch (error) {
       return {
