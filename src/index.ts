@@ -17,6 +17,7 @@ import { postToGitHub, createReviewComments } from './output/github.js';
 import { parseGitHubURL } from './resolver/github.js';
 import { estimateTokens, estimateCost, formatEstimate, ModelEstimate } from './cost/estimator.js';
 import { evaluatePolicy, formatCIFindings } from './ci/policy.js';
+import { ArtifactWriter, createArtifact, ResolvedDiffArtifact, PromptArtifact, ModelRunArtifact, ConsensusArtifact, PolicyArtifact } from './artifacts/index.js';
 import fs from 'fs/promises';
 
 const program = new Command();
@@ -57,6 +58,7 @@ program
   .option('--show-disagreements', 'Show disagreement analysis (default: on in verbose mode)')
   .option('--max-cost <usd>', 'Maximum cost in USD for this review run', parseFloat)
   .option('--stop-after-findings <count>', 'Stop early when enough blocking findings found', parseInt)
+  .option('--artifacts-dir <path>', 'Directory to write review artifacts (for debugging/resumability)')
   .action(async (target, options) => {
     try {
       const spinner = ora('Loading configuration').start();
@@ -69,6 +71,14 @@ program
       });
 
       spinner.succeed('Configuration loaded');
+
+      // Initialize artifact writer if artifacts-dir is set
+      let artifactWriter: ArtifactWriter | undefined;
+      if (options.artifactsDir) {
+        artifactWriter = new ArtifactWriter(options.artifactsDir);
+        await artifactWriter.init();
+        spinner.info(`Artifacts will be written to ${artifactWriter.getSessionDir()}`);
+      }
 
       // Resolve diff
       spinner.start('Resolving diff');
@@ -120,6 +130,17 @@ program
       if (diffResult.files.length === 0) {
         console.log(chalk.yellow('⚠️  No files to review after filtering'));
         return;
+      }
+
+      // Write resolved diff artifact
+      if (artifactWriter) {
+        const artifact = createArtifact<ResolvedDiffArtifact>('resolved-diff', {
+          files: diffResult.files,
+          fileCount: diffResult.files.length,
+          totalAdditions: diffResult.files.reduce((sum, f) => sum + f.additions, 0),
+          totalDeletions: diffResult.files.reduce((sum, f) => sum + f.deletions, 0),
+        });
+        await artifactWriter.write(artifact);
       }
 
       // Chunk diff
@@ -174,6 +195,19 @@ program
         spinner.succeed(chunks.length > 1
           ? `Chunk ${ci + 1}/${chunks.length} prompt built (${chunk.files.length} files)`
           : 'Prompt built');
+
+        // Write prompt artifact
+        if (artifactWriter) {
+          const promptTokens = estimateTokens(prompt);
+          const artifact = createArtifact<PromptArtifact>('prompt', {
+            chunkIndex: ci,
+            totalChunks: chunks.length,
+            prompt,
+            fileCount: chunk.files.length,
+            estimatedTokens: promptTokens,
+          });
+          await artifactWriter.write(artifact);
+        }
 
         // Check budget before running this chunk
         if (maxCost !== undefined) {
@@ -233,6 +267,15 @@ program
         }
 
         allResponses.push(...responses);
+
+        // Write model run artifact
+        if (artifactWriter) {
+          const artifact = createArtifact<ModelRunArtifact>('model-run', {
+            chunkIndex: ci,
+            responses,
+          });
+          await artifactWriter.write(artifact);
+        }
 
         // Check if we should stop early based on findings count
         const stopAfterFindings = options.stopAfterFindings || config.stopAfterFindings;
@@ -331,6 +374,14 @@ program
         `Consensus built: ${result.findings.length} finding${result.findings.length !== 1 ? 's' : ''}`
       );
 
+      // Write consensus artifact
+      if (artifactWriter) {
+        const artifact = createArtifact<ConsensusArtifact>('consensus', {
+          ...result,
+        });
+        await artifactWriter.write(artifact);
+      }
+
       // Evaluate CI policy if in CI mode or policy flags provided
       let policyResult;
       if (options.ci || options.failOn || options.requireConsensus) {
@@ -342,6 +393,12 @@ program
         };
         policyResult = evaluatePolicy(result.findings, policy);
         console.log(chalk[policyResult.passed ? 'green' : 'red'](policyResult.summary));
+
+        // Write policy artifact
+        if (artifactWriter) {
+          const artifact = createArtifact<PolicyArtifact>('policy', policyResult);
+          await artifactWriter.write(artifact);
+        }
       }
 
       // Output results
