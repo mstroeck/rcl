@@ -31,8 +31,10 @@ export async function resolveDiff(
   try {
     return await readLocalDiff(target);
   } catch {
+    // Sanitize target for error message (truncate and remove non-printable chars)
+    const sanitizedTarget = target.slice(0, 100).replace(/[^\x20-\x7E]/g, '');
     throw new Error(
-      `Could not resolve target: ${target}. Expected GitHub PR (owner/repo#123) or local patch file.`
+      `Could not resolve target: ${sanitizedTarget}. Expected GitHub PR (owner/repo#123) or local patch file.`
     );
   }
 }
