@@ -35,7 +35,9 @@ program
   .option('--models <models>', 'Comma-separated list of models (claude,gpt,gemini)', (val) =>
     val.split(',').map(s => s.trim())
   )
-  .option('--post', 'Post results as GitHub PR comment')
+  .option('--post', 'Post results to GitHub PR (defaults to inline review comments)')
+  .option('--inline', 'Post inline review comments (alias for --post-mode inline)')
+  .option('--post-mode <mode>', 'How to post to GitHub: comment, inline, or both (default: inline)')
   .option('--json', 'Output as JSON')
   .option('--markdown', 'Output as Markdown')
   .option('--output <file>', 'Write output to file')
@@ -423,18 +425,35 @@ program
       }
 
       // Post to GitHub if requested
-      if (options.post) {
+      if (options.post || options.inline) {
         const ghParsed = parseGitHubURL(target);
         if (!ghParsed) {
           console.log(chalk.yellow('⚠️  Cannot post to GitHub: target is not a GitHub PR'));
         } else {
-          spinner.start('Posting to GitHub');
+          // Determine post mode (default to inline)
+          let postMode = options.postMode || (options.inline ? 'inline' : 'inline');
+          if (!['comment', 'inline', 'both'].includes(postMode)) {
+            console.log(chalk.yellow(`⚠️  Invalid --post-mode: ${postMode}. Using 'inline'.`));
+            postMode = 'inline';
+          }
+
+          const ghOptions = {
+            ...ghParsed,
+            token: options.githubToken,
+          };
+
           try {
-            await postToGitHub(result, {
-              ...ghParsed,
-              token: options.githubToken,
-            });
-            spinner.succeed('Posted to GitHub');
+            if (postMode === 'comment' || postMode === 'both') {
+              spinner.start('Posting PR comment');
+              await postToGitHub(result, ghOptions);
+              spinner.succeed('Posted PR comment');
+            }
+
+            if (postMode === 'inline' || postMode === 'both') {
+              spinner.start('Posting inline review comments');
+              await createReviewComments(result, ghOptions);
+              spinner.succeed('Posted inline review comments');
+            }
           } catch (error) {
             spinner.fail(
               `Failed to post to GitHub: ${error instanceof Error ? error.message : 'Unknown error'}`
