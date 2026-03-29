@@ -50,15 +50,30 @@ export class OpenAIAdapter implements ReviewAdapter {
 
       const content = response.choices[0]?.message?.content || '[]';
 
-      // OpenAI might wrap in { "findings": [...] } or return array directly
+      // OpenAI might wrap in { "findings": [...] }, return array directly, or return a single object
       let parsed;
       try {
         parsed = JSON.parse(content);
-        if (parsed.findings && Array.isArray(parsed.findings)) {
+        if (Array.isArray(parsed)) {
+          // Already an array — good
+        } else if (parsed.findings && Array.isArray(parsed.findings)) {
           parsed = parsed.findings;
+        } else if (parsed.issues && Array.isArray(parsed.issues)) {
+          parsed = parsed.issues;
+        } else if (parsed.results && Array.isArray(parsed.results)) {
+          parsed = parsed.results;
+        } else if (parsed.file && parsed.message) {
+          // Single finding returned as object — wrap in array
+          parsed = [parsed];
+        } else {
+          // Look for any array property
+          const arrayProp = Object.values(parsed).find(v => Array.isArray(v));
+          parsed = arrayProp || [];
         }
       } catch {
-        parsed = [];
+        // Try to extract JSON array from text
+        const match = content.match(/\[[\s\S]*\]/);
+        parsed = match ? JSON.parse(match[0]) : [];
       }
 
       return {

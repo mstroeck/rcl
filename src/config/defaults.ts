@@ -10,7 +10,7 @@ export const DEFAULT_MODELS = [
   },
   {
     provider: 'openai' as const,
-    model: 'gpt-5.4-codex',
+    model: 'gpt-5.4',
     apiKey: process.env.OPENAI_API_KEY,
     temperature: 0.3,
     maxTokens: 16000,
