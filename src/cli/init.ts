@@ -57,7 +57,7 @@ jobs:
           GOOGLE_API_KEY: \${{ secrets.GOOGLE_API_KEY }}
           GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
         run: |
-          rcl review "${{ github.repository }}#${{ github.event.pull_request.number }}" \\
+          rcl review "\${{ github.repository }}#\${{ github.event.pull_request.number }}" \\
             --post \\
             --ci \\
             --github-token "$GITHUB_TOKEN"
@@ -116,7 +116,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
     console.log('');
   }
 
-  let config = { ...DEFAULT_CONFIG };
+  let config: Record<string, unknown> = { ...DEFAULT_CONFIG };
 
   if (options.yes) {
     // Non-interactive mode with defaults
@@ -160,11 +160,11 @@ export async function initCommand(options: InitOptions): Promise<void> {
     config = {
       models: answers.models,
       thresholds: {
-        ...config.thresholds,
+        ...(config.thresholds as Record<string, unknown> || {}),
         minSeverity: answers.minSeverity,
       },
       policy: {
-        ...config.policy,
+        ...(config.policy as Record<string, unknown> || {}),
         failOn: answers.failOn,
       },
       ignore: answers.ignorePatterns.split(',').map((s: string) => s.trim()).filter((s: string) => s),
