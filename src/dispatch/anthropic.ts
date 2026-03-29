@@ -96,7 +96,7 @@ export class AnthropicAdapter implements ReviewAdapter {
           'findings' in toolUse.input &&
           Array.isArray((toolUse.input as Record<string, unknown>).findings)
         ) {
-          findings = (toolUse.input as Record<string, unknown>).findings;
+          findings = (toolUse.input as Record<string, unknown>).findings as any[];
         }
 
         return {

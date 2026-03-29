@@ -69,31 +69,31 @@ export async function getConfig(cliOptions?: {
         };
       }
 
-      // Fall back to alias lookup
+      // Fall back to alias lookup — default to top-tier models
       const lower = name.toLowerCase();
-      if (lower.includes('claude')) {
+      if (lower.includes('claude') || lower.includes('anthropic')) {
         return {
           provider: 'anthropic' as const,
-          model: 'claude-sonnet-4-5-20250929',
+          model: 'claude-opus-4-6',
           apiKey: process.env.ANTHROPIC_API_KEY,
           temperature: 0.3,
-          maxTokens: 4000,
+          maxTokens: 16000,
         };
       } else if (lower.includes('gpt') || lower.includes('openai')) {
         return {
           provider: 'openai' as const,
-          model: 'gpt-4o',
+          model: 'gpt-5.4',
           apiKey: process.env.OPENAI_API_KEY,
           temperature: 0.3,
-          maxTokens: 4000,
+          maxTokens: 16000,
         };
       } else if (lower.includes('gemini') || lower.includes('google')) {
         return {
           provider: 'google' as const,
-          model: 'gemini-2.0-flash-exp',
-          apiKey: process.env.GOOGLE_API_KEY,
+          model: 'gemini-3-pro-preview',
+          apiKey: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY,
           temperature: 0.3,
-          maxTokens: 4000,
+          maxTokens: 16000,
         };
       }
       throw new Error(`Unknown model: ${name}`);

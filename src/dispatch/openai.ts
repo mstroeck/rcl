@@ -33,11 +33,16 @@ export class OpenAIAdapter implements ReviewAdapter {
     const client = this.client;
 
     try {
-      // Newer OpenAI models (o3, gpt-5.x, etc.) use max_completion_tokens instead of max_tokens
-      const usesCompletionTokens = /^(o[1-9]|gpt-[5-9]|gpt-\d{2,})/.test(request.model.model);
+      // Reasoning models (o1, o3, o3-mini, etc.) use different params
+      const isReasoningModel = /^(o[1-9])/.test(request.model.model);
+      const usesCompletionTokens = isReasoningModel || /^(gpt-[5-9]|gpt-\d{2,})/.test(request.model.model);
       const tokenParam = usesCompletionTokens
         ? { max_completion_tokens: request.model.maxTokens }
         : { max_tokens: request.model.maxTokens };
+
+      // Reasoning models don't support temperature or response_format
+      const tempParam = isReasoningModel ? {} : { temperature: request.model.temperature };
+      const formatParam = isReasoningModel ? {} : { response_format: { type: 'json_object' as const } };
 
       const abortController = new AbortController();
       const timeoutId = setTimeout(() => abortController.abort(), request.timeout * 1000);
@@ -46,7 +51,7 @@ export class OpenAIAdapter implements ReviewAdapter {
       try {
         response = await client.chat.completions.create({
           model: request.model.model,
-          temperature: request.model.temperature,
+          ...tempParam,
           ...tokenParam,
           messages: [
             {
@@ -54,7 +59,7 @@ export class OpenAIAdapter implements ReviewAdapter {
               content: request.prompt,
             },
           ],
-          response_format: { type: 'json_object' },
+          ...formatParam,
         }, {
           signal: abortController.signal,
         });
