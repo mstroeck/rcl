@@ -1,6 +1,6 @@
 import { cosmiconfig } from 'cosmiconfig';
 import { ReviewConfig, ReviewConfigSchema } from './schema.js';
-import { DEFAULT_CONFIG } from './defaults.js';
+import { DEFAULT_CONFIG, getDefaultModels } from './defaults.js';
 
 const explorer = cosmiconfig('review-council');
 
@@ -9,8 +9,12 @@ export async function loadConfig(override?: Partial<ReviewConfig>): Promise<Revi
     const result = await explorer.search();
     const fileConfig = result?.config || {};
 
+    // Use getDefaultModels() to get fresh API keys from environment
+    const defaultModels = getDefaultModels();
+
     const merged = {
       ...DEFAULT_CONFIG,
+      models: defaultModels,
       ...fileConfig,
       ...override,
       thresholds: {
