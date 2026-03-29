@@ -16,7 +16,26 @@ export function parseReviewResponse(response: ReviewResponse): ModelReview {
 
   try {
     const parsed = JSON.parse(response.rawResponse);
-    const findings = Array.isArray(parsed) ? parsed : [];
+    let findings: unknown[] = [];
+
+    if (Array.isArray(parsed)) {
+      // Direct array of findings
+      findings = parsed;
+    } else if (typeof parsed === 'object' && parsed !== null) {
+      // Check for common wrapper keys
+      const wrapperKeys = ['findings', 'issues', 'results'];
+      for (const key of wrapperKeys) {
+        if (key in parsed && Array.isArray(parsed[key])) {
+          findings = parsed[key];
+          break;
+        }
+      }
+
+      // If still empty and object has 'file' and 'message' keys, it's a single finding wrapped
+      if (findings.length === 0 && 'file' in parsed && 'message' in parsed) {
+        findings = [parsed];
+      }
+    }
 
     // Validate each finding
     const validFindings = findings
