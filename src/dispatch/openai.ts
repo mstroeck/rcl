@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { ReviewAdapter, ReviewRequest, ReviewResponse } from './adapter.js';
+import { getModelCapabilities } from './capabilities.js';
 
 export class OpenAIAdapter implements ReviewAdapter {
   private client: OpenAI | null = null;
@@ -33,16 +34,19 @@ export class OpenAIAdapter implements ReviewAdapter {
     const client = this.client;
 
     try {
-      // Reasoning models (o1, o3, o3-mini, etc.) use different params
-      const isReasoningModel = /^(o[1-9])/.test(request.model.model);
-      const usesCompletionTokens = isReasoningModel || /^(gpt-[5-9]|gpt-\d{2,})/.test(request.model.model);
-      const tokenParam = usesCompletionTokens
-        ? { max_completion_tokens: request.model.maxTokens }
-        : { max_tokens: request.model.maxTokens };
+      // Use capability system to determine model features
+      const capabilities = getModelCapabilities(request.model.model);
 
-      // Reasoning models don't support temperature or response_format
-      const tempParam = isReasoningModel ? {} : { temperature: request.model.temperature };
-      const formatParam = isReasoningModel ? {} : { response_format: { type: 'json_object' as const } };
+      // Only set token limits if explicitly configured
+      const tokenParam = request.model.maxTokens
+        ? (capabilities.usesCompletionTokens
+            ? { max_completion_tokens: request.model.maxTokens }
+            : { max_tokens: request.model.maxTokens })
+        : {};
+
+      // Only include temperature and response_format if supported
+      const tempParam = capabilities.supportsTemperature ? { temperature: request.model.temperature } : {};
+      const formatParam = capabilities.supportsResponseFormat ? { response_format: { type: 'json_object' as const } } : {};
 
       const abortController = new AbortController();
       const timeoutId = setTimeout(() => abortController.abort(), request.timeout * 1000);
@@ -97,12 +101,22 @@ export class OpenAIAdapter implements ReviewAdapter {
         parsed = match ? JSON.parse(match[0]) : [];
       }
 
+      // Extract token usage from response
+      const tokenUsage = response.usage
+        ? {
+            inputTokens: response.usage.prompt_tokens || 0,
+            outputTokens: response.usage.completion_tokens || 0,
+            totalTokens: response.usage.total_tokens || 0,
+          }
+        : undefined;
+
       return {
         provider: 'openai',
         model: request.model.model,
         rawResponse: JSON.stringify(parsed),
         success: true,
         durationMs: Date.now() - startTime,
+        tokenUsage,
       };
     } catch (error) {
       return {

@@ -58,7 +58,7 @@ export class OpenAICompatAdapter implements ReviewAdapter {
         response = await client.chat.completions.create({
           model: request.model.model,
           temperature: request.model.temperature,
-          max_tokens: request.model.maxTokens,
+          ...(request.model.maxTokens ? { max_tokens: request.model.maxTokens } : {}),
           messages: [
             {
               role: 'user',
@@ -85,7 +85,7 @@ export class OpenAICompatAdapter implements ReviewAdapter {
             response = await client.chat.completions.create({
               model: request.model.model,
               temperature: request.model.temperature,
-              max_tokens: request.model.maxTokens,
+              ...(request.model.maxTokens ? { max_tokens: request.model.maxTokens } : {}),
               messages: [
                 {
                   role: 'user',

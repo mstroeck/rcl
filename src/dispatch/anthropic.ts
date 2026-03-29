@@ -39,7 +39,7 @@ export class AnthropicAdapter implements ReviewAdapter {
       try {
         const response = await client.messages.create({
           model: request.model.model,
-          max_tokens: request.model.maxTokens,
+          max_tokens: request.model.maxTokens || 32768, // Anthropic requires this field; generous default when unconfigured
           temperature: request.model.temperature,
           messages: [
             {
@@ -99,12 +99,22 @@ export class AnthropicAdapter implements ReviewAdapter {
           findings = (toolUse.input as Record<string, unknown>).findings as any[];
         }
 
+        // Extract token usage from response
+        const tokenUsage = response.usage
+          ? {
+              inputTokens: response.usage.input_tokens || 0,
+              outputTokens: response.usage.output_tokens || 0,
+              totalTokens: (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0),
+            }
+          : undefined;
+
         return {
           provider: 'anthropic',
           model: request.model.model,
           rawResponse: JSON.stringify(findings),
           success: true,
           durationMs: Date.now() - startTime,
+          tokenUsage,
         };
       } catch (error) {
         clearTimeout(timeoutId);

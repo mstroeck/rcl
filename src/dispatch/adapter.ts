@@ -6,6 +6,12 @@ export interface ReviewRequest {
   timeout: number;
 }
 
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
 export interface ReviewResponse {
   provider: string;
   model: string;
@@ -13,6 +19,7 @@ export interface ReviewResponse {
   success: boolean;
   error?: string;
   durationMs: number;
+  tokenUsage?: TokenUsage;
 }
 
 export interface ReviewAdapter {

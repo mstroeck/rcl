@@ -14,6 +14,14 @@ export const FindingSchema = z.object({
 
 export type Finding = z.infer<typeof FindingSchema>;
 
+export const TokenUsageSchema = z.object({
+  inputTokens: z.number(),
+  outputTokens: z.number(),
+  totalTokens: z.number(),
+});
+
+export type TokenUsage = z.infer<typeof TokenUsageSchema>;
+
 export const ModelReviewSchema = z.object({
   provider: z.string(),
   model: z.string(),
@@ -21,6 +29,7 @@ export const ModelReviewSchema = z.object({
   success: z.boolean(),
   error: z.string().optional(),
   durationMs: z.number(),
+  tokenUsage: TokenUsageSchema.optional(),
 });
 
 export type ModelReview = z.infer<typeof ModelReviewSchema>;

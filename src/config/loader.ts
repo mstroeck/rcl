@@ -69,7 +69,7 @@ export async function getConfig(cliOptions?: {
         };
       }
 
-      // Fall back to alias lookup — default to top-tier models
+      // Fall back to alias lookup — default to top-tier models, no token limits
       const lower = name.toLowerCase();
       if (lower.includes('claude') || lower.includes('anthropic')) {
         return {
@@ -77,7 +77,6 @@ export async function getConfig(cliOptions?: {
           model: 'claude-opus-4-6',
           apiKey: process.env.ANTHROPIC_API_KEY,
           temperature: 0.3,
-          maxTokens: 16000,
         };
       } else if (lower.includes('gpt') || lower.includes('openai')) {
         return {
@@ -85,15 +84,13 @@ export async function getConfig(cliOptions?: {
           model: 'gpt-5.4',
           apiKey: process.env.OPENAI_API_KEY,
           temperature: 0.3,
-          maxTokens: 16000,
         };
       } else if (lower.includes('gemini') || lower.includes('google')) {
         return {
           provider: 'google' as const,
-          model: 'gemini-3-pro-preview',
+          model: 'gemini-2.5-pro',
           apiKey: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY,
           temperature: 0.3,
-          maxTokens: 16000,
         };
       }
       throw new Error(`Unknown model: ${name}`);
