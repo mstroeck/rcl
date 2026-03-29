@@ -33,13 +33,29 @@ export class GoogleAdapter implements ReviewAdapter {
     const genAI = this.client;
 
     try {
+      // Thinking models (gemini-2.5-*, gemini-3-*) use thinking tokens from the output budget.
+      // Cap thinking budget so findings actually get generated, and bump maxOutputTokens.
+      const isThinkingModel = /^gemini-(2\.5|3)/.test(request.model.model);
+      const maxOutputTokens = isThinkingModel
+        ? Math.max(request.model.maxTokens, 65536) // ensure enough room for thinking + output
+        : request.model.maxTokens;
+
+      const generationConfig: Record<string, unknown> = {
+        temperature: request.model.temperature,
+        maxOutputTokens,
+        responseMimeType: 'application/json',
+      };
+
+      // Limit thinking budget so it doesn't consume all output tokens
+      if (isThinkingModel) {
+        generationConfig.thinkingConfig = {
+          thinkingBudget: 8192,
+        };
+      }
+
       const model = genAI.getGenerativeModel({
         model: request.model.model,
-        generationConfig: {
-          temperature: request.model.temperature,
-          maxOutputTokens: request.model.maxTokens,
-          responseMimeType: 'application/json',
-        },
+        generationConfig: generationConfig as any,
       });
 
       const abortController = new AbortController();
