@@ -76,7 +76,7 @@ export function formatTerminalOutput(result: ConsensusResult, verbose: boolean =
 
   lines.push(chalk.bold('By Consensus:'));
   for (const { modelCount, count } of summary.byModels) {
-    const percentage = Math.round((modelCount / result.successCount) * 100);
+    const percentage = result.successCount > 0 ? Math.round((modelCount / result.successCount) * 100) : 0;
     lines.push(`  ${modelCount}/${result.successCount} models (${percentage}%): ${count} finding${count !== 1 ? 's' : ''}`);
   }
   lines.push('');
