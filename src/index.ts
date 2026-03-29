@@ -16,6 +16,7 @@ import { formatMarkdownOutput } from './output/markdown.js';
 import { postToGitHub, createReviewComments } from './output/github.js';
 import { parseGitHubURL } from './resolver/github.js';
 import { estimateTokens, estimateCost, formatEstimate, ModelEstimate } from './cost/estimator.js';
+import { evaluatePolicy, formatCIFindings } from './ci/policy.js';
 import fs from 'fs/promises';
 
 const program = new Command();
@@ -50,6 +51,9 @@ program
     val.split(',').map(s => s.trim())
   )
   .option('--context <text>', 'Additional context about the codebase for reviewers')
+  .option('--fail-on <severity>', 'Severity threshold for CI failure (info|low|medium|high|critical)')
+  .option('--require-consensus <count>', 'Minimum models that must agree for blocking finding', parseInt)
+  .option('--soft-fail', 'Report findings but always exit 0 (for CI)')
   .action(async (target, options) => {
     try {
       const spinner = ora('Loading configuration').start();
@@ -248,6 +252,19 @@ program
         `Consensus built: ${result.findings.length} finding${result.findings.length !== 1 ? 's' : ''}`
       );
 
+      // Evaluate CI policy if in CI mode or policy flags provided
+      let policyResult;
+      if (options.ci || options.failOn || options.requireConsensus) {
+        const policy = {
+          failOn: options.failOn || config.policy?.failOn || 'high',
+          requireConsensus: options.requireConsensus || config.policy?.requireConsensus || 1,
+          categories: config.policy?.categories,
+          ignoreCategories: config.policy?.ignoreCategories || [],
+        };
+        policyResult = evaluatePolicy(result.findings, policy);
+        console.log(chalk[policyResult.passed ? 'green' : 'red'](policyResult.summary));
+      }
+
       // Output results
       let output: string;
 
@@ -287,18 +304,25 @@ program
         }
       }
 
-      // CI mode: exit with error if critical/high findings
-      if (options.ci) {
-        const criticalOrHigh = result.findings.filter(
-          f => f.severity === 'critical' || f.severity === 'high'
-        );
-        if (criticalOrHigh.length > 0) {
-          console.log(
-            chalk.red(
-              `\n❌ CI check failed: ${criticalOrHigh.length} critical/high severity issue${criticalOrHigh.length !== 1 ? 's' : ''} found`
-            )
-          );
-          process.exit(1);
+      // CI mode: exit with error based on policy
+      if (options.ci || options.failOn || options.requireConsensus) {
+        if (!policyResult) {
+          // Should never happen due to logic above, but TypeScript doesn't know that
+          throw new Error('Policy result not computed');
+        }
+
+        if (!policyResult.passed) {
+          // Print detailed findings for CI
+          console.log(formatCIFindings(policyResult.blockingFindings));
+
+          // Soft-fail mode: report but don't exit with error
+          if (options.softFail) {
+            console.log(chalk.yellow('\n⚠️  Soft-fail mode: findings reported but exiting 0'));
+            process.exit(0);
+          }
+
+          // Hard fail
+          process.exit(policyResult.exitCode);
         }
       }
     } catch (error) {

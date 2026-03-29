@@ -15,6 +15,13 @@ export const ThresholdConfigSchema = z.object({
   requireUnanimous: z.boolean().default(false),
 });
 
+export const PolicyConfigSchema = z.object({
+  failOn: z.enum(['info', 'low', 'medium', 'high', 'critical']).default('high'),
+  requireConsensus: z.number().int().min(1).default(1),
+  categories: z.array(z.string()).optional(),
+  ignoreCategories: z.array(z.string()).default([]),
+});
+
 export const ReviewConfigSchema = z.object({
   models: z.array(ModelConfigSchema).min(1),
   thresholds: ThresholdConfigSchema.default({}),
@@ -29,10 +36,12 @@ export const ReviewConfigSchema = z.object({
   ignore: z.array(z.string()).default([]),
   include: z.array(z.string()).default([]),
   context: z.string().optional(),
+  policy: PolicyConfigSchema.optional(),
 });
 
 export type ModelConfig = z.infer<typeof ModelConfigSchema>;
 export type ThresholdConfig = z.infer<typeof ThresholdConfigSchema>;
+export type PolicyConfig = z.infer<typeof PolicyConfigSchema>;
 export type ReviewConfig = z.infer<typeof ReviewConfigSchema>;
 
 export const ConfigSchema = ReviewConfigSchema;
