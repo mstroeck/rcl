@@ -79,11 +79,9 @@ function isMatchingFinding(
   }
 
   // Check for semantic similarity in messages
-  // Simple heuristic: same category or similar keywords
+  // Category match is an additional signal, but not sufficient alone
   const currentCategories = group.findings.map(f => f.finding.category.toLowerCase());
-  if (currentCategories.includes(finding.category.toLowerCase())) {
-    return true;
-  }
+  const categoryMatches = currentCategories.includes(finding.category.toLowerCase());
 
   // Check message similarity (very basic)
   const findingWords = new Set(
@@ -109,9 +107,13 @@ function isMatchingFinding(
       [...findingWords].filter(w => groupedWords.has(w))
     );
 
-    // Require at least 2 overlapping words and >30% overlap ratio
+    // Adjust overlap threshold based on category match:
+    // - Same category: lower threshold (0.2) to allow more grouping
+    // - Different category: higher threshold (0.3) to be more conservative
+    const overlapThreshold = categoryMatches ? 0.2 : 0.3;
     const overlapRatio = intersection.size / Math.min(findingWords.size, groupedWords.size);
-    if (intersection.size >= 2 && overlapRatio > 0.3) {
+
+    if (intersection.size >= 2 && overlapRatio > overlapThreshold) {
       return true;
     }
   }
